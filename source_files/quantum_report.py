@@ -1,17 +1,33 @@
-# -*- coding: utf-8 -*-
 """
-Created on Tue Nov 24 20:43:28 2020
+is somehing.
 
-@author: CHEE
+second line
 """
 
-class report():
+
+class quantum_report:
+    """
+    To store data that is required for analysis.
+
+    Attributes
+    ----------
+    loss_data : list
+        Contains the loss function values for every epochs/training iterations.
+    """
+
     def __init__(self):
+
+        self.loss_data = []
         pass
 
-    def new_report(self):
+    def append_loss(self, new_loss):
+        """
+        Append a new loss data entry into the existing list.
+
+        Parameters
+        ----------
+        new_loss : float
+            A new loss data entry.
+        """
+        self.loss_data.append(new_loss)
         pass
-
-
-
-

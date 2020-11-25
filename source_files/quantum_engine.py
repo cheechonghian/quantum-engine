@@ -1,46 +1,93 @@
+"""
+Quantum Engine script.
+
+Universal Parameters
+--------------------
+verbose : bool
+    Print statements to console
+
+"""
+
+
 import numpy as np
 import time
-import quantum_objects as qobj
-import quantum_trainer as qtrain
+import teacher_objects as tobj
+import quantum_optimiser as qopt
+
 
 class teacher_model:
     """
+    Define a teacher model that will be used as a target function for the quantum model to approximate to.
+
     Attributes
     ----------
-
+    See parameters of __init__, config, noise_config
     """
-    def __init__(self, select_model=False, verbose=True):
+    def __init__(self, verbose=True):
         """
-        Parameters
-        ----------
+        #
 
         """
         if verbose is True:
             print("""
-select_model(_):
+                select_model(_):
 
-1 -> Linear         b*x + a
-2 -> Quadratic      c*x^2 + b*x + a
-e -> Exponential    a*exp(b*x)
-l -> Logarithmic    a*log(b*x)
-sin -> Sine         a*sin(b*x + c)
-cos -> Cosine       a*cos(b*x +c)
+                lin -> Linear         b*x + a
+                quad -> Quadratic      c*x^2 + b*x + a
+                e -> Exponential    a*exp(b*x)
+                l -> Logarithmic    a*log(b*x)
+                sin -> Sine         a*sin(b*x + c)
+                cos -> Cosine       a*cos(b*x +c)
                   """)
-        if select_model is not False:
-            self.select_model = select_model
-        return None
 
-    def config(self, select_model):
-
+    def config(self, select_model="lin", x_lower_limit=0.0, x_upper_limit=1.0, number_of_points=10, a=1.0, b=1.0, c=1.0, d=1.0, ):
         """
+        Apply configuration settings to teacher model.
+
         Parameters
         ----------
-
+        select_model : str
+            The teacher model type.
+        x_lower_limit, x_upper_limit : float
+            Lower and upper limits of the independent variable x (input) of the teacher model.
+        number_of_points : int
+            Number of data points.
+        a, b, c, d : float
+            Required model parameters.
         """
         self.select_model = select_model
-        return None
+        self.x_low_lim = x_lower_limit
+        self.x_upp_lim = x_upper_limit
+        self.no_of_points = number_of_points
+        self.model_parameters = {"a": a, "b": b, "c": c, "d": d}
+
+    def noise_config(self, x_choose="equal_spacing", y_choose="None", x_g_var=0.1, y_g_var=0.1):
+        """
+        Apply noise configuration settings to teacher model.
+
+        Parameters
+        ----------
+        x_choose : str
+            Choosing independent variable x by:
+                1. "equal_spacing" starting and ending at the limits.
+                2. a "random_uniform" distribution.
+                3. "equal_space_gaussian", apply gaussian noise to 1.
+        y_choose : str
+            Apply noise to the dependent variable y (output) of the teacher model.
+            1. "None", no noise applied.
+            2. "gaussian" apply gaussian noise
+
+        x_g_var, y_g_var : float
+            Variance of the gaussian noise.
+        """
+        self.x_choose = x_choose
+        self.y_choose = y_choose
+        self.x_g_var = x_g_var
+        self.y_g_var = y_g_var
+
 
     def generate_training_batch(self):
+        model = tobj.teacher().call[self.select_model]
 
         return #training_batch # Numpy array
 
@@ -61,9 +108,6 @@ class loss_function:
         ----------
 
         """
-        return None
-
-        self.select_loss = select_loss
         return None
 
     def config(self,select_loss):
@@ -179,10 +223,13 @@ class quantum_ul_layer(quantum_layer):
 
 class quantum_measurement:
     """
-    Attributes
+    Attributes.
+
     ----------
 
+
     """
+
     def __init__(self, verbose=True):
         """
         Parameters
@@ -297,7 +344,7 @@ class quantum_trainer:
         self.loss_function = loss_function
 
     def train(self):
-        optimiser = qtrain.optimiser().call[self.optimiser_name]
+        optimiser = qopt.optimiser().call[self.optimiser_name]
         my_trained_quantum_model, my_training_report = optimiser(self.teacher_model, self.quantum_model, self.loss_function, self.config_store)
 
         return my_trained_quantum_model, my_training_report
