@@ -13,7 +13,7 @@ import numpy as np
 import time
 import teacher_objects as tobj
 import quantum_optimiser as qopt
-
+import matplotlib.pyplot as plt
 
 class teacher_model:
     """
@@ -23,11 +23,9 @@ class teacher_model:
     ----------
     See parameters of __init__, config, noise_config
     """
-    def __init__(self, verbose=True):
-        """
-        #
 
-        """
+    def __init__(self, verbose=True):
+        #
         if verbose is True:
             print("""
                 select_model(_):
@@ -59,9 +57,20 @@ class teacher_model:
         self.x_low_lim = x_lower_limit
         self.x_upp_lim = x_upper_limit
         self.no_of_points = number_of_points
-        self.model_parameters = {"a": a, "b": b, "c": c, "d": d}
+        assert isinstance(number_of_points, int), "'number_of_points' is not an integer."
+        assert number_of_points >= 10, "'number_of_points' is less than 10. Too few data points."
 
-    def noise_config(self, x_choose="equal_spacing", y_choose="None", x_g_var=0.1, y_g_var=0.1):
+        self.config_parameters = {"select_model": select_model,
+                                  "x_low_lim": x_lower_limit,
+                                  "x_upp_lim": x_upper_limit,
+                                  "no_of_points": number_of_points,
+                                  "a": a,
+                                  "b": b,
+                                  "c": c,
+                                  "d": d,
+                                  }
+
+    def noise_config(self, x_choose="equal_spacing", y_choose="None", x_g_var=np.array([0.1]), y_g_var=np.array([0.1]), y1_g_var=np.array([0.1])):
         """
         Apply noise configuration settings to teacher model.
 
@@ -70,32 +79,59 @@ class teacher_model:
         x_choose : str
             Choosing independent variable x by:
                 1. "equal_spacing" starting and ending at the limits.
-                2. a "random_uniform" distribution.
-                3. "equal_space_gaussian", apply gaussian noise to 1.
+                2. "equal_space_gaussian", apply gaussian noise to 1.
+                    * Note that the gaussian values generated may not respect the limits.
+                3. a "random_uniform" distribution.
+
         y_choose : str
             Apply noise to the dependent variable y (output) of the teacher model.
             1. "None", no noise applied.
             2. "gaussian" apply gaussian noise
 
-        x_g_var, y_g_var : float
+        x_g_var, y_g_var : numpy array
             Variance of the gaussian noise.
+                If len()=1, all variances are assumed be the same.
+                Otherwise, all variances must be supplied in the numpy array.
         """
         self.x_choose = x_choose
         self.y_choose = y_choose
-        self.x_g_var = x_g_var
-        self.y_g_var = y_g_var
 
+        self.x_g_var = x_g_var
+        assert isinstance(x_g_var, np.ndarray), "'x_g_var' is not numpy array"
+        assert (len(x_g_var) == 1) or (len(x_g_var) == self.no_of_points), "The number of variances in 'x_g_var' is not equal to 'number_of_points'."
+
+        self.y_g_var = y_g_var
+        assert isinstance(y_g_var, np.ndarray), "'y_g_var' is not numpy array"
+        assert (len(y_g_var) == 1) or (len(y_g_var) == self.no_of_points), "The number of variances in 'y_g_var' is not equal to 'number_of_points'."
+
+        self.y1_g_var = y1_g_var
+        assert isinstance(y1_g_var, np.ndarray), "'y1_g_var' is not numpy array"
+        assert (len(y1_g_var) == 1) or (len(y1_g_var) == self.no_of_points), "The number of variances in 'y1_g_var' is not equal to 'number_of_points'."
+
+        self.noise_config_parameters = {"x_choose": x_choose,
+                                        "y_choose": y_choose,
+                                        "x_g_var": x_g_var,
+                                        "y_g_var": y_g_var,
+                                        "y1_g_var": y1_g_var,
+                                        }
 
     def generate_training_batch(self):
-        model = tobj.teacher().call[self.select_model]
+        model = tobj.generate_data()
+        data = model(self.config_parameters, self.noise_config_parameters)
+        self.x_data = data["x_data"]
+        self.y_data = data["y_data"]
+        self.y1_data = data["y1_data"]
 
-        return #training_batch # Numpy array
+        return  data# training_batch # Numpy array
 
     def generate_testing_batch(self):
 
-        return #testing_batch  # Numpy array
+        return  # testing_batch  # Numpy array
 
-
+    def plot(self):
+        fig, ax = plt.subplots(dpi=100)
+        ax.scatter(self.x_data, self.y_data)
+        ax.plot(self.x_data, self.y_data)
 class loss_function:
     """
     Attributes
