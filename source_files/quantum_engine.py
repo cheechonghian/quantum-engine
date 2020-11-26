@@ -40,19 +40,8 @@ class teacher_model:
         self.verbose = verbose
         self.is_train_data_gen = False
         self.is_test_data_gen = False
-        if verbose is True:
-            print("""
-                select_model(_):
 
-                lin -> Linear         b*x + a
-                quad -> Quadratic      c*x^2 + b*x + a
-                e -> Exponential    a*exp(b*x)
-                l -> Logarithmic    a*log(b*x)
-                sin -> Sine         a*sin(b*x + c)
-                cos -> Cosine       a*cos(b*x +c)
-                  """)
-
-    def config(self, select_model="lin", x_lower_limit=0.0, x_upper_limit=1.0, number_of_points=10, a=1.0, b=1.0, c=1.0, d=1.0,
+    def config(self, select_model="lin", x_lower_limit=0.0, x_upper_limit=1.0, no_of_train_points=10, no_of_test_points=10, a=1.0, b=1.0, c=1.0, d=1.0,
                x_choose="equal_spacing", y_choose="None", x_g_var=np.array([0.1]), y_g_var=np.array([0.1]), y1_g_var=np.array([0.1]),):
         """
         Apply configuration settings to teacher model.
@@ -88,49 +77,62 @@ class teacher_model:
                * Otherwise, all variances must be supplied in the numpy array.
         """
 
-        assert isinstance(number_of_points, int), "'number_of_points' is not an integer."
-        assert number_of_points >= 10, "'number_of_points' is less than 10. Too few data points."
+        assert isinstance(no_of_train_points, int), "'number_of_points' is not an integer."
+        assert no_of_train_points >= 10, "'number_of_points' is less than 10. Too few data points."
 
         assert isinstance(x_g_var, np.ndarray), "'x_g_var' is not numpy array"
-        assert (len(x_g_var) == 1) or (len(x_g_var) == number_of_points), "The number of variances in 'x_g_var' is not equal to 'number_of_points'."
+        assert (len(x_g_var) == 1) or (len(x_g_var) == no_of_train_points), "The number of variances in 'x_g_var' is not equal to 'number_of_points'."
 
         assert isinstance(y_g_var, np.ndarray), "'y_g_var' is not numpy array"
-        assert (len(y_g_var) == 1) or (len(y_g_var) == number_of_points), "The number of variances in 'y_g_var' is not equal to 'number_of_points'."
+        assert (len(y_g_var) == 1) or (len(y_g_var) == no_of_train_points), "The number of variances in 'y_g_var' is not equal to 'number_of_points'."
 
         assert isinstance(y1_g_var, np.ndarray), "'y1_g_var' is not numpy array"
-        assert (len(y1_g_var) == 1) or (len(y1_g_var) == number_of_points), "The number of variances in 'y1_g_var' is not equal to 'number_of_points'."
+        assert (len(y1_g_var) == 1) or (len(y1_g_var) == no_of_train_points), "The number of variances in 'y1_g_var' is not equal to 'number_of_points'."
 
-        self.config_parameters = {"select_model": select_model,
-                                  "x_low_lim": x_lower_limit,
-                                  "x_upp_lim": x_upper_limit,
-                                  "no_of_data_points": number_of_points,
-                                  "a": a,
-                                  "b": b,
-                                  "c": c,
-                                  "d": d,
-                                  "x_choose": x_choose,
-                                  "y_choose": y_choose,
-                                  "x_g_var": x_g_var,
-                                  "y_g_var": y_g_var,
-                                  "y1_g_var": y1_g_var,
-                                  }
+        self.teacher_params = {"select_model": select_model,
+                               "x_low_lim": x_lower_limit,
+                               "x_upp_lim": x_upper_limit,
+                               "no_of_train_points": no_of_train_points,
+                               "no_of_test_points": no_of_test_points,
+                               "a": a,
+                               "b": b,
+                               "c": c,
+                               "d": d,
+                               "x_choose": x_choose,
+                               "y_choose": y_choose,
+                               "x_g_var": x_g_var,
+                               "y_g_var": y_g_var,
+                               "y1_g_var": y1_g_var,
+                               }
 
     def generate_training_batch(self):
         self.is_train_data_gen = True
-        self.data = tobj.generate_data(self.config_parameters)
+        self.train_data = tobj.generate_data(self.teacher_params, is_train_data=True)
 
     def generate_testing_batch(self):
+        self.is_test_data_gen = True
+        self.test_data = tobj.generate_data(self.teacher_params, is_test_data=True)
         pass  # testing_batch  # Numpy array
 
     def plot_training_batch(self):
         fig, ax = plt.subplots(2, 1, dpi=100, sharex=True)
-        ax[0].scatter(self.data["x_tdata"], self.data["y_tdata"])
+        ax[0].scatter(self.train_data["x_data"], self.train_data["y_data"])
         ax[0].set_ylabel(r"$f(x)$")
-        ax[1].scatter(self.data["x_tdata"], self.data["y1_tdata"])
+        ax[1].scatter(self.train_data["x_data"], self.train_data["y1_data"])
         ax[1].set_ylabel(r"$f^{\prime}(x)$")
         ax[1].set_xlabel(r"$x$")
         fig.subplots_adjust(hspace=0.1)
-        fig.suptitle("Teacher Model Training Batch\n" + self.data["model_name"])
+        fig.suptitle("Teacher Model Training Batch\n" + self.train_data["model_name"])
+
+    def plot_testing_batch(self):
+        fig, ax = plt.subplots(2, 1, dpi=100, sharex=True)
+        ax[0].scatter(self.test_data["x_data"], self.test_data["y_data"])
+        ax[0].set_ylabel(r"$f(x)$")
+        ax[1].scatter(self.test_data["x_data"], self.test_data["y1_data"])
+        ax[1].set_ylabel(r"$f^{\prime}(x)$")
+        ax[1].set_xlabel(r"$x$")
+        fig.subplots_adjust(hspace=0.1)
+        fig.suptitle("Teacher Model Testing Batch\n" + self.test_data["model_name"])
 
 
 class loss_function:
@@ -146,7 +148,7 @@ class loss_function:
         ----------
 
         """
-        return None
+        self.verbose = verbose
 
     def config(self, select_loss="quad_loss"):
         """
@@ -154,18 +156,25 @@ class loss_function:
         ----------
 
         """
-        self.select_loss = select_loss
-        self.config_parameters = {"select_loss": select_loss,
-                                  }
-        return None
+        self.loss_params = {"select_loss": select_loss,
+                            }
 
-    def calculate_loss(self, quantum_measurement_data, teacher_model):
-        loss_data = lobj.calculate_loss(quantum_measurement_data, teacher_model, self.config_parameters)
+    def calculate_loss(self, quantum_result_data, teacher_data):
+        """
+        Parameters
+        ----------
+        quantum_result_data: dict
+            *** To be filled ***
+        teacher_data: dict
+            Either 'teacher_model.train_data' or 'teacher_model.test_data'
+
+        """
+        loss_data = lobj.calculate_loss(quantum_result_data, teacher_data, self.loss_params)
         return loss_data
 
 
 
-class quantum_data:
+class quantum_encoding:
     """
     Attributes
     ----------
@@ -177,7 +186,7 @@ class quantum_data:
         ----------
 
         """
-        return None
+        self.verbose = verbose
 
     def config(self, select_encoding):
         """
@@ -186,7 +195,7 @@ class quantum_data:
 
         """
         self.select_encoding = select_encoding
-        return None
+
 
     def encode(self, training_x_data):
         pass
@@ -358,7 +367,7 @@ class quantum_trainer:
         ----------
 
         """
-        self.trainer_config = {"select_optimiser": select_optimiser,
+        self.trainer_params = {"select_optimiser": select_optimiser,
                                "max_training_set": max_training_set,
                                "learning_rate": learning_rate,
                                }
@@ -376,7 +385,7 @@ class quantum_trainer:
         self.loss_function = loss_function
 
     def train(self):
-        my_training_report = qopt.optimiser(self.teacher_model, self.quantum_model, self.loss_function, self.trainer_config)
+        my_training_report = qopt.optimiser(self.teacher_model, self.quantum_model, self.loss_function, self.trainer_params)
         return my_training_report
 
 

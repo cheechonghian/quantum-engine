@@ -10,7 +10,7 @@ import quantum_report as qrep
 import numpy as np
 
 
-def optimise(teacher_model, quantum_model, loss_function, trainer_params):
+def optimiser(teacher_model, quantum_model, loss_function, trainer_params):
     """
     Applies the vanilla gradient descent without any modifications.
 
@@ -28,7 +28,7 @@ def optimise(teacher_model, quantum_model, loss_function, trainer_params):
     my_report = qrep.quantum_report()
     model_selection = get_optimise_models()
     model = model_selection[trainer_params["select_model"]]
-    my_report = model(teacher_model, quantum_model, loss_function, trainer_params, my_report)
+    model(teacher_model, quantum_model, loss_function, trainer_params, my_report)
 
     return my_report
 
@@ -54,22 +54,19 @@ def standard_gradient_descent(teacher_model, quantum_model, loss_function, train
     """
 
     for _ in range(trainer_params["max_training_sets"]):
-        for i in range(len(teacher_model.config_parameters["no_of_data_points"])):
-            quantum_model.input_data(teacher_model.data)
-            quantum_result = quantum_model.run_model()
+        for i in range(len(teacher_model.teacher_params["no_of_train_points"])):
+            quantum_model.input_data(teacher_model.train_data)
+            quantum_result_data = quantum_model.run_model()
 
-        training_loss_info = loss_function.calculate_loss_info(quantum_result, teacher_model)
+        training_loss_info = loss_function.calculate_loss_info(quantum_result_data, teacher_model.train_data)
         my_report.store_loss_info(training_loss_info)
         new_quantum_params = gradient_descent(quantum_model, trainer_params, training_loss_info)
         quantum_model.update_params(new_quantum_params)
-
-    return my_report #report
 
 
 def stochastic_gradient_descent():
 
     return
-
 
 ## Helper Functions ##
 

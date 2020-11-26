@@ -3,24 +3,24 @@ loss objects functions.
 
 Universal Parameters
 --------------------
-qdata: dict
+quantum_result_data: dict
     ***To be filled***
 
-tmodel: class
-    'teacher_model' class from quantum_engine.py
+teacher_data: dict
+    Either 'teacher_model.train_data' or 'teacher_model.test_data'
 
-l_params: dict
-    'config_parameters' attribute under 'loss_function' class from quantum_engine.py
+loss_params: dict
+    'loss_params' attribute under 'loss_function' class from quantum_engine.py
 """
 
 # from numpy.random import default_rng
 import numpy as np
 
 
-def calculate_loss(qdata, tmodel, l_params):
+def calculate_loss(quantum_result_data, teacher_data, loss_params):
     model_selection = get_loss_models()
-    loss_model = model_selection[l_params["select_loss"]]
-    generate_loss_info = loss_model(qdata, tmodel, l_params)
+    loss_model = model_selection[loss_params["select_loss"]]
+    generate_loss_info = loss_model(quantum_result_data, teacher_data, loss_params)
     loss_info = {"loss": generate_loss_info.loss,
                  "loss_gradient": generate_loss_info.loss_gradient,
                  }
@@ -35,10 +35,10 @@ def get_loss_models():
 
 
 class quadratic_loss:
-    def __init__(self, qdata, tmodel, l_params):
-        self.loss = np.sum(np.square(qdata["y_adata"] - tmodel.y_tdata))
-        self.loss_gradient = qdata.dot(qdata["grad"], 2 * (qdata["y_adata"] - tmodel.y_tdata))
+    def __init__(self, quantum_result_data, teacher_data, loss_params):
+        self.loss = np.sum(np.square(quantum_result_data["y_data"] - teacher_data["y_data"]))
+        self.loss_gradient = np.dot(quantum_result_data["grad"], 2 * (quantum_result_data["y_data"] - teacher_data["y_data"]))
 
 class sobolev:
-    def __init__(self, qdata, tmodel, l_params):
+    def __init__(self, quantum_result_data, teacher_data, loss_params):
         return
