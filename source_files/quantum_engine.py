@@ -12,7 +12,9 @@ verbose : bool
 import numpy as np
 import time
 import teacher_objects as tobj
+import loss_objects as lobj
 import quantum_optimiser as qopt
+import quantum_models_objects as qmobj
 import matplotlib.pyplot as plt
 
 class teacher_model:
@@ -25,7 +27,19 @@ class teacher_model:
     """
 
     def __init__(self, verbose=True):
-        #
+        """
+        Apply configuration settings to teacher model.
+
+        Parameters
+        ----------
+        verbose : bool
+            To enable console print statements for more information.
+        is_train_data_gen, is_test_data_gen : bool
+            To check if training or testing data set has been generated.
+        """
+        self.verbose = verbose
+        self.is_train_data_gen = False
+        self.is_test_data_gen = False
         if verbose is True:
             print("""
                 select_model(_):
@@ -38,7 +52,8 @@ class teacher_model:
                 cos -> Cosine       a*cos(b*x +c)
                   """)
 
-    def config(self, select_model="lin", x_lower_limit=0.0, x_upper_limit=1.0, number_of_points=10, a=1.0, b=1.0, c=1.0, d=1.0, ):
+    def config(self, select_model="lin", x_lower_limit=0.0, x_upper_limit=1.0, number_of_points=10, a=1.0, b=1.0, c=1.0, d=1.0,
+               x_choose="equal_spacing", y_choose="None", x_g_var=np.array([0.1]), y_g_var=np.array([0.1]), y1_g_var=np.array([0.1]),):
         """
         Apply configuration settings to teacher model.
 
@@ -52,36 +67,15 @@ class teacher_model:
             Number of data points.
         a, b, c, d : float
             Required model parameters.
-        """
-        self.select_model = select_model
-        self.x_low_lim = x_lower_limit
-        self.x_upp_lim = x_upper_limit
-        self.no_of_points = number_of_points
-        assert isinstance(number_of_points, int), "'number_of_points' is not an integer."
-        assert number_of_points >= 10, "'number_of_points' is less than 10. Too few data points."
 
-        self.config_parameters = {"select_model": select_model,
-                                  "x_low_lim": x_lower_limit,
-                                  "x_upp_lim": x_upper_limit,
-                                  "no_of_points": number_of_points,
-                                  "a": a,
-                                  "b": b,
-                                  "c": c,
-                                  "d": d,
-                                  }
-
-    def noise_config(self, x_choose="equal_spacing", y_choose="None", x_g_var=np.array([0.1]), y_g_var=np.array([0.1]), y1_g_var=np.array([0.1])):
-        """
-        Apply noise configuration settings to teacher model.
-
-        Parameters
+        Noise Parameters
         ----------
         x_choose : str
             Choosing independent variable x by:
-                1. "equal_spacing" starting and ending at the limits.
-                2. "equal_space_gaussian", apply gaussian noise to 1.
-                    * Note that the gaussian values generated may not respect the limits.
-                3. a "random_uniform" distribution.
+            1. "equal_spacing" starting and ending at the limits.
+            2. "equal_space_gaussian", apply gaussian noise to 1.
+                * Note that the gaussian values generated may not respect the limits.
+            3. a "random_uniform" distribution.
 
         y_choose : str
             Apply noise to the dependent variable y (output) of the teacher model.
@@ -90,54 +84,62 @@ class teacher_model:
 
         x_g_var, y_g_var : numpy array
             Variance of the gaussian noise.
-                If len()=1, all variances are assumed be the same.
-                Otherwise, all variances must be supplied in the numpy array.
+               * If len()=1, all variances are assumed be the same.
+               * Otherwise, all variances must be supplied in the numpy array.
         """
-        self.x_choose = x_choose
-        self.y_choose = y_choose
 
-        self.x_g_var = x_g_var
+        assert isinstance(number_of_points, int), "'number_of_points' is not an integer."
+        assert number_of_points >= 10, "'number_of_points' is less than 10. Too few data points."
+
         assert isinstance(x_g_var, np.ndarray), "'x_g_var' is not numpy array"
-        assert (len(x_g_var) == 1) or (len(x_g_var) == self.no_of_points), "The number of variances in 'x_g_var' is not equal to 'number_of_points'."
+        assert (len(x_g_var) == 1) or (len(x_g_var) == number_of_points), "The number of variances in 'x_g_var' is not equal to 'number_of_points'."
 
-        self.y_g_var = y_g_var
         assert isinstance(y_g_var, np.ndarray), "'y_g_var' is not numpy array"
-        assert (len(y_g_var) == 1) or (len(y_g_var) == self.no_of_points), "The number of variances in 'y_g_var' is not equal to 'number_of_points'."
+        assert (len(y_g_var) == 1) or (len(y_g_var) == number_of_points), "The number of variances in 'y_g_var' is not equal to 'number_of_points'."
 
-        self.y1_g_var = y1_g_var
         assert isinstance(y1_g_var, np.ndarray), "'y1_g_var' is not numpy array"
-        assert (len(y1_g_var) == 1) or (len(y1_g_var) == self.no_of_points), "The number of variances in 'y1_g_var' is not equal to 'number_of_points'."
+        assert (len(y1_g_var) == 1) or (len(y1_g_var) == number_of_points), "The number of variances in 'y1_g_var' is not equal to 'number_of_points'."
 
-        self.noise_config_parameters = {"x_choose": x_choose,
-                                        "y_choose": y_choose,
-                                        "x_g_var": x_g_var,
-                                        "y_g_var": y_g_var,
-                                        "y1_g_var": y1_g_var,
-                                        }
+        self.config_parameters = {"select_model": select_model,
+                                  "x_low_lim": x_lower_limit,
+                                  "x_upp_lim": x_upper_limit,
+                                  "no_of_data_points": number_of_points,
+                                  "a": a,
+                                  "b": b,
+                                  "c": c,
+                                  "d": d,
+                                  "x_choose": x_choose,
+                                  "y_choose": y_choose,
+                                  "x_g_var": x_g_var,
+                                  "y_g_var": y_g_var,
+                                  "y1_g_var": y1_g_var,
+                                  }
 
     def generate_training_batch(self):
-        model = tobj.generate_data()
-        data = model(self.config_parameters, self.noise_config_parameters)
-        self.x_data = data["x_data"]
-        self.y_data = data["y_data"]
-        self.y1_data = data["y1_data"]
-
-        return  data# training_batch # Numpy array
+        self.is_train_data_gen = True
+        self.data = tobj.generate_data(self.config_parameters)
 
     def generate_testing_batch(self):
+        pass  # testing_batch  # Numpy array
 
-        return  # testing_batch  # Numpy array
+    def plot_training_batch(self):
+        fig, ax = plt.subplots(2, 1, dpi=100, sharex=True)
+        ax[0].scatter(self.data["x_tdata"], self.data["y_tdata"])
+        ax[0].set_ylabel(r"$f(x)$")
+        ax[1].scatter(self.data["x_tdata"], self.data["y1_tdata"])
+        ax[1].set_ylabel(r"$f^{\prime}(x)$")
+        ax[1].set_xlabel(r"$x$")
+        fig.subplots_adjust(hspace=0.1)
+        fig.suptitle("Teacher Model Training Batch\n" + self.data["model_name"])
 
-    def plot(self):
-        fig, ax = plt.subplots(dpi=100)
-        ax.scatter(self.x_data, self.y_data)
-        ax.plot(self.x_data, self.y_data)
+
 class loss_function:
     """
     Attributes
     ----------
 
     """
+
     def __init__(self, verbose=True):
         """
         Parameters
@@ -146,18 +148,21 @@ class loss_function:
         """
         return None
 
-    def config(self,select_loss):
+    def config(self, select_loss="quad_loss"):
         """
         Parameters
         ----------
 
         """
         self.select_loss = select_loss
+        self.config_parameters = {"select_loss": select_loss,
+                                  }
         return None
 
-    def calculate_loss(self, quantum_measurement_data, training_data):
-        self.loss_
-        return
+    def calculate_loss(self, quantum_measurement_data, teacher_model):
+        loss_data = lobj.calculate_loss(quantum_measurement_data, teacher_model, self.config_parameters)
+        return loss_data
+
 
 
 class quantum_data:
@@ -174,7 +179,7 @@ class quantum_data:
         """
         return None
 
-    def config(self,select_encoding):
+    def config(self, select_encoding):
         """
         Parameters
         ----------
@@ -183,6 +188,8 @@ class quantum_data:
         self.select_encoding = select_encoding
         return None
 
+    def encode(self, training_x_data):
+        pass
 
 class quantum_layer:
     """
@@ -209,7 +216,7 @@ class quantum_ham_layer(quantum_layer):
         """
         return None
 
-    def config(self,select_ham_type):
+    def config(self, select_ham_type):
         """
         Parameters
         ----------
@@ -233,7 +240,7 @@ class quantum_ml_layer(quantum_layer):
         """
         return None
 
-    def config(self,select_ml_type):
+    def config(self, select_ml_type):
         self.select_ml_type = select_ml_type
         return None
 
@@ -252,7 +259,7 @@ class quantum_ul_layer(quantum_layer):
         """
         return None
 
-    def config(self,select_upload_type):
+    def config(self, select_upload_type):
         self.select_upload_type = select_upload_type
         return None
 
@@ -274,7 +281,7 @@ class quantum_measurement:
         """
         return None
 
-    def config(self,select_measurement):
+    def config(self, select_measurement):
         """
         Parameters
         ----------
@@ -298,43 +305,37 @@ class quantum_model:
         """
         return None
 
-    def config(self, select_quantum_model):
+    def config(self, select_quantum_model="default", depth=2):
         """
         Parameters
         ----------
 
         """
-        self.select_quantum_model = select_quantum_model
+        self.model_config_params = {"select_model": select_quantum_model,
+                                    "depth": depth,
+                                    }
         return None
 
-    def inputs(self, my_entangling, my_parameterised, my_reupload, my_measurement):
+    def inputs(self, my_quantum_data, my_entangling, my_parameterised, my_reupload, my_measurement):
         """
         Parameters
         ----------
 
         """
+        self.quantum_data = quantum_data
         self.ham_layer = my_entangling
         self.ml_layer = my_parameterised
         self.ul_layer = my_reupload
         self.qmeasure = my_measurement
         return None
 
-    def input_data(self,training_data):
+    def input_data(self, teacher_model_data, ):
         # Process the quantum data
-        return None
+        self.initial_state = quantum_data.encode(teacher_model_data)
 
     def run_model(self):
-
-        return # output_state # Generate an Output state
-
-    def run_model(self):
-        # Generate an Output state
-        return None
-
-    def measure_Z(self, output_state):
-        # Measure the first qubit using a pauli_z gate
-
-        return None #measurement_result # This should be a single number
+        measurement_result = qmobj.run_quantum_computer(self.initial_state, self.ham_layer, self.ml_layer, self.ul_layer, self.qmeasure, )
+        return measurement_result
 
 
 class quantum_trainer:
@@ -351,20 +352,16 @@ class quantum_trainer:
         """
         return None
 
-    def config(self, optimiser_name, max_training_set=10, learning_rate=0.5):
-        self.config_store = self.config_storage(optimiser_name, max_training_set, learning_rate)
-
+    def config(self, select_optimiser="GD", max_training_set=10, learning_rate=0.5):
         """
         Parameters
         ----------
 
         """
-
-    class config_storage:
-        def __init__(self, optimiser_name, max_training_sets, learning_rate):
-            self.max_training_sets = max_training_sets
-            self.optimiser_name = optimiser_name
-            self.learning_rate = learning_rate
+        self.trainer_config = {"select_optimiser": select_optimiser,
+                               "max_training_set": max_training_set,
+                               "learning_rate": learning_rate,
+                               }
 
     def inputs(self, teacher_model, quantum_model, loss_function):
         """
@@ -373,56 +370,16 @@ class quantum_trainer:
         teacher_model: teacher_model class
         quantum_model: quantum_model class
         loss_function: loss_function class
-        optimizer: optimizer class
         """
         self.teacher_model = teacher_model
         self.quantum_model = quantum_model
         self.loss_function = loss_function
 
     def train(self):
-        optimiser = qopt.optimiser().call[self.optimiser_name]
-        my_trained_quantum_model, my_training_report = optimiser(self.teacher_model, self.quantum_model, self.loss_function, self.config_store)
-
-        return my_trained_quantum_model, my_training_report
+        my_training_report = qopt.optimiser(self.teacher_model, self.quantum_model, self.loss_function, self.trainer_config)
+        return my_training_report
 
 
 
 
 
-class training_report:
-    """
-    Attributes
-    ----------
-
-    """
-    def __init__(self, verbose=True):
-        """
-        Parameters
-        ----------
-
-        """
-        return None
-
-
-class trained_quantum_model:
-    """
-    Attributes
-    ----------
-
-    """
-    def __init__(self, verbose=True):
-        """
-        Parameters
-        ----------
-
-        """
-        return None
-
-    def predict(self, x):
-        """
-        Parameters
-        ----------
-
-        """
-        y = x
-        return y

@@ -20,7 +20,7 @@ class quantum_report:
         self.loss_data = []
         pass
 
-    def append_loss(self, new_loss):
+    def store_loss_info(self, new_loss):
         """
         Append a new loss data entry into the existing list.
 
