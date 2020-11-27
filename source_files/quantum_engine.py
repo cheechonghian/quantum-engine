@@ -8,14 +8,16 @@ verbose : bool
 
 """
 
-
-import numpy as np
 import time
+import numpy as np
+import matplotlib.pyplot as plt
+
 import teacher_objects as tobj
 import loss_objects as lobj
+import layer_objects as qlobj
+import quantum_processor as qpro
 import quantum_optimiser as qopt
-import quantum_models_objects as qmobj
-import matplotlib.pyplot as plt
+
 
 class teacher_model:
     """
@@ -200,7 +202,8 @@ class quantum_encoding:
     def encode(self, training_x_data):
         pass
 
-class quantum_layer:
+
+class quantum_block:
     """
     Attributes
     ----------
@@ -210,68 +213,27 @@ class quantum_layer:
     def __init__(self, verbose=True):
         return None
 
+    def config(self, select_block):
+        self.select_block = select_block
+        print(qlobj.show_params(select_block))
 
-class quantum_ham_layer(quantum_layer):
-    """
-    Attributes
-    ----------
+    def config_dict(self, block_params):
+        # need to show the block_params
+        block_params["select_block"] = self.select_block
+        self.block_params = block_params
+        self.block = qlobj.get_block(block_params)  # Output a class object of a quantum block
 
-    """
-    def __init__(self, verbose=True):
-        """
-        Parameters
-        ----------
+    def get_matrix_operator(self, depth_iter_1):
+        matrix_operator = self.block.get_matrix_operator(depth_iter_1)
+        return matrix_operator
 
-        """
-        return None
+    def get_matrix_operator_shift_plus(self,depth_iter_1, param_iter):
 
-    def config(self, select_ham_type):
-        """
-        Parameters
-        ----------
+        return matrix_operator
 
-        """
-        self.select_ham_type = select_ham_type
-        return None
+    def get_matrix_operator_shift_minus(self, depth_iter_1):
 
-
-class quantum_ml_layer(quantum_layer):
-    """
-    Attributes
-    ----------
-
-    """
-    def __init__(self, verbose=True):
-        """
-        Parameters
-        ----------
-
-        """
-        return None
-
-    def config(self, select_ml_type):
-        self.select_ml_type = select_ml_type
-        return None
-
-
-class quantum_ul_layer(quantum_layer):
-    """
-    Attributes
-    ----------
-
-    """
-    def __init__(self, verbose=True):
-        """
-        Parameters
-        ----------
-
-        """
-        return None
-
-    def config(self, select_upload_type):
-        self.select_upload_type = select_upload_type
-        return None
-
+        return matrix_operator
 
 class quantum_measurement:
     """
@@ -299,8 +261,17 @@ class quantum_measurement:
         self.select_measurement = select_measurement
         return None
 
+    def measure(self, final_state_amplitude):
+        pass
 
-class quantum_model:
+    def measure_gradient(self, final_states_amplitude):
+        """
+        # final_states_amplitude is an ordered dict
+        """
+
+        pass
+
+class quantum_computer: # Need fixing
     """
     Attributes
     ----------
@@ -314,37 +285,37 @@ class quantum_model:
         """
         return None
 
-    def config(self, select_quantum_model="default", depth=2):
+    def config(self, select_qc_model="AB_repeat", depth=2):
         """
         Parameters
         ----------
 
         """
-        self.model_config_params = {"select_model": select_quantum_model,
-                                    "depth": depth,
-                                    }
+        self.qcomputer_params = {"select_qc_model": select_qc_model,
+                                 "depth": depth,
+                                 }
         return None
 
-    def inputs(self, my_quantum_data, my_entangling, my_parameterised, my_reupload, my_measurement):
+    def inputs(self, my_quantum_encoding, my_quantum_measurement, quantum_block_A, quantum_block_B=None, quantum_block_C=None):
         """
         Parameters
         ----------
 
         """
-        self.quantum_data = quantum_data
-        self.ham_layer = my_entangling
-        self.ml_layer = my_parameterised
-        self.ul_layer = my_reupload
-        self.qmeasure = my_measurement
+        self.quantum_circuit = {"quantum_encoding": my_quantum_encoding,
+                                "quantum_block_A": quantum_block_A,  # Assumes this to be a fixed gate
+                                "quantum_block_B": quantum_block_B,  # Assume this to be parameterised gate
+                                "quantum_measurement": my_quantum_measurement,
+                                }
         return None
 
     def input_data(self, teacher_model_data, ):
         # Process the quantum data
-        self.initial_state = quantum_data.encode(teacher_model_data)
+        self.initial_state = self.quantum_circuit["quantum_encoding"].encode(teacher_model_data)
 
     def run_model(self):
-        measurement_result = qmobj.run_quantum_computer(self.initial_state, self.ham_layer, self.ml_layer, self.ul_layer, self.qmeasure, )
-        return measurement_result
+        quantum_result_data = qpro.run_quantum_computer(self.initial_state, self.quantum_circuit, self.qcomputer_params)
+        return quantum_result_data
 
 
 class quantum_trainer:
@@ -372,20 +343,20 @@ class quantum_trainer:
                                "learning_rate": learning_rate,
                                }
 
-    def inputs(self, teacher_model, quantum_model, loss_function):
+    def inputs(self, teacher_model, my_quantum_computer, loss_function):
         """
         Parameters
         ----------
         teacher_model: teacher_model class
-        quantum_model: quantum_model class
+        quantum_computer: quantum_computer class
         loss_function: loss_function class
         """
         self.teacher_model = teacher_model
-        self.quantum_model = quantum_model
+        self.quantum_computer = quantum_computer
         self.loss_function = loss_function
 
     def train(self):
-        my_training_report = qopt.optimiser(self.teacher_model, self.quantum_model, self.loss_function, self.trainer_params)
+        my_training_report = qopt.optimiser(self.teacher_model, self.quantum_computer, self.loss_function, self.trainer_params)
         return my_training_report
 
 
