@@ -1,8 +1,14 @@
+"""
+Created by Chee Chong Hian.
+
+Below contains Quantum Computer operations for Quantum Circuit Learning.
+"""
 import numpy as np
 import networkx as nx
 import math as m
 from numpy.random import default_rng
 import scipy as spy
+
 
 # This code is modified from QAOA internship code.
 class PureQuantumState:
@@ -145,219 +151,112 @@ def normalize(numpy_vector):
     return numpy_vector / norm
 
 
-class Graph:
-    """
-    Define a graph class.
-
-    This class uses the networkX graph package to handle graph operations and funtions.
-    However, one must be careful to DEFINE a  graph.
-    TO DEFINE a Graph:
-        1. Using networkX graph generators
-            a) Only use non-weighted and non-directed graph generators.
-            b) Put the generated graph under argument name: 'my_networkX_graph'.
-            c) Set argument name 'weight_list' to either 'No_Weights' (all weights = 1) or 'Random_Weights' (sampled from uniform  distribution -1 to 1))
-            NOTE: Custom Weights are not possible.
-        2. Custom graph creation (Preferred)
-            a) Define the 'number_of_vertices'.
-            b) Define the 'edge_list' as a list of tuples of two vertices. WARNING: VERTEX LABELS BE INTEGERS AND START FROM 0.
-            c) Define the 'weight_list' as a list of floats. (Must correspond to the 'edge_list')
-
-    Attributes
-    ----------
-    networkX_graph: a networkX_graph object class
-        The  problem graph of interest. Extra information may be added during initialization.
-    accelerate: Boolean
-        To be set true if one wishes to use Greedy Newton. It will create the necessary data structure that will be used to store Pauli composition expectation values.
-    """
-
-    def __init__(self, bias_list=None, weight_list=None, my_networkX_graph=None):
-        """
-        Define initialization of  graph class that allows easier graph processing.
-
-        Parameters
-        ----------
-        name: str
-            The name the  Graph class
-        number_of_vertices: int
-            The number of vertices in the graph
-        edge_list: list of tuples of two vertices
-            A list containing edge information, edges are defined using tuple of two vertices labelled (starting from index 0)
-        bias_list: list of floats <<-- or -->> string
-            (Custom graph creation)
-                A list containing numbers(floats) that represent bias.
-            <<-- or -->>
-            (Using networkX graph generators)
-                A string that will dictate the type of weight that will be set later. Accepted strings 'No_Bias' (all bias = 0) or 'Random_Bias' (sampled from uniform  distribution -1 to 1)
-        weight_list: list of floats <<-- or -->> string
-            (Custom graph creation)
-                A list containing numbers(floats) that represent weights.
-            <<-- or -->>
-            (Using networkX graph generators)
-                A string that will dictate the type of weight that will be set later. Accepted strings 'No_Weights' (all weights = 1) or 'Random_Weights' (sampled from uniform  distribution -1 to 1))
-        my_networkX_graph: A networkX graph class object (non-weighted and non-directed)
-            A graph generated using networkX non-weighted and non-directed graph generators.
-        """
-        # Define the grap
-        set_weight(my_networkX_graph, weight_list)
-        set_bias(my_networkX_graph, bias_list)
-        self.networkX_graph = my_networkX_graph
-
-        return
-
-
-# Helper Functions
-def define_networkX_graph(number_of_vertices, edge_list, weight_list=None):
-    """
-    Create a networkX graph based on the number of vertices, edges and weights(if any).
-
-    Parameters
-    ----------
-    number_of_vertices: int
-        The number of vertices in the graph
-    edge_list: list of tuples of two vertices
-            A list containing edge information, edges are defined using tuple of two vertices labelled (starting from index 0)
-    weight_list: list of floats
-        A list containing numbers(floats) that represent weights.
-    """
-    print('Loading Graph...')
-    myNewGraph = nx.Graph()
-    print('Adding vertices...')
-    myNewGraph.add_nodes_from([i for i in range(number_of_vertices)])
-    print(f'Number of vertices is {number_of_vertices}')
-    print('Adding edges...')
-
-    for edge in edge_list:
-        if edge[0] >= number_of_vertices or edge[1] >= number_of_vertices:
-            print('The edge information contains extra undefined vertice(s). Please make sure the number of vertices is correct.')
-            return None
-        else:
-            myNewGraph.add_edge(edge[0], edge[1])
-
-    print('Edges loaded, edge order may differ.')
-    print('Loading weights...')
-
-    if weight_list is None:
-        set_weight(myNewGraph, 'No_Weights', seed=None)
-        print('No weight information available. Defaulting to all weights equal to one...')
-
-    elif weight_list == 'Random':
-        print('Samling weights from a uniform distribution over [0,1). Other random distributions to be added soon...')
-        set_weight(myNewGraph, 'Random', seed=None)
-
-    elif len(weight_list) != len(edge_list):
-        set_weight(myNewGraph, 'No_Weights', seed=None)
-        print('Number of weights does not match the number of edges. Please make sure the number of weights is correct.')
-        return None
-
-    else:
-        # Set custom weight information. Please use list of floats or int.
-        for edge in edge_list:
-            myNewGraph[edge[0]][edge[1]]['weight'] = float(weight_list[edge_list.index(edge)])
-        print('Weights loaded, weight order may differ.')
-
-    print('Graph is loaded and ready. Please check your edges for any unintended additional/missing edges carefully.')
-    return myNewGraph
-
-
-def set_weight(myGraph, weight_list):
-    """
-    Set the weights attributes of all edges in the given graph.
-
-    Parameters
-    ----------
-    myGraph: class
-        A graph of interest defined as a instance of a class <networkx.classes.graph.Graph>
-    weight_list: string
-        A setting to tell the function to use the appropriate subroutines set the correct graphs.
-        'No_Weights': Set weight =1 (non-weighted) graphs.
-        'Random_Weights': Set random weighted graphs.
-    """
-    for edge in myGraph.edges():
-        if weight_list == 'No_Weights':
-            myGraph[edge[0]][edge[1]]['weight'] = 1
-
-        elif weight_list == 'Random_Weights':
-            myGraph[edge[0]][edge[1]]['weight'] = default_rng().uniform(-1, 1)
-
-    return None
-
-
-def set_bias(myGraph, bias_list):
-    """
-    Set the weights attributes of all edges in the given graph.
-
-    Parameters
-    ----------
-    myGraph: class
-        A graph of interest defined as a instance of a class <networkx.classes.graph.Graph>
-    bias_list: string
-        A setting to tell the function to use the appropriate subroutines set the correct graphs.
-        'No_Bias': Set bias =0 (non-bias) graphs.
-        'Random_Bias': Set random bias node graphs.
-    """
-    for node in myGraph.nodes():
-        if bias_list == 'No_Bias':
-            myGraph.nodes[node]['bias'] = 0
-
-        elif bias_list == 'Random_Bias':
-            myGraph.nodes[node]['bias'] = default_rng().uniform(-1, 1)
-
-    return None
-
-
 class HamlitonianMixerBlock:
     """
     Define an unitary evolution that is associated with a fully connnected graph with random weights and bias. Random: Uniform distribution between [-1,1].
 
     Attributes
     ----------
-    graph: networkx graph object
-        A weighted graph of interest. If the graph is unweighted must be converted to weighted graphs treating all weights equal to one.
-    matrix: numpy matrix
-        The unitary driven by an Ising Hamiltonian Mixer operator in computational basis.
+    number_of_qubits: int
+        The number of qubits that the quantum computer has.
+    total_time: float
+        The total time evolution of the Ising Hamiltonian.
+    total_depth: int
+        The number of times the evolution is repeated, after the rotation block.
+    matrix_operator_depth: dict
+        Store the ising hamlitonian evolution matrix operator in computational basis.
+    graph_store: dict
+        Stores the complete graph that corresponds to the Ising Hamiltonian.
     """
 
     def __init__(self):
-        """
-        Define initialization of the maxcut operator.
-
-        Parameters
-        ----------
-        name: str
-            The name of the Mixer operator object.
-        graph: networkx graph object
-            A weighted graph of interest. If the graph is unweighted must be converted to weighted graphs treating all weights equal to one.
-        use_negative: bool
-            Set whether if the C should be a negative maxcut hamiltonian or just a normal one. To align with physical quantum theory, use negative == True.
-        """
+        print("Note: 'HamlitonianMixerBlock' class does not have any user config settings.")
         pass
 
     def config(self, number_of_qubits, total_time, total_depth):
         """
         Parameters
         ----------
-        number_of_qubits : int
-        total_time : float
+        number_of_qubits: int
+            The number of qubits that the quantum computer has.
+        total_time: float
+            The total time evolution of the Ising Hamiltonian.
         total_depth: int
+            The number of times the evolution is repeated, after the rotation block.
         """
         self.number_of_qubits = number_of_qubits
         self.total_time = total_time
         self.total_depth = total_depth
+
+        graph_store = {}
         matrix_operator_depth = {}
         for depth_iter in range(total_depth):
             # Generate a complete graph
             my_graph = nx.complete_graph(self.number_of_qubits)
 
-            # Generate Graph class to support future features
-            myGraph = Graph(bias_list='Random_Bias', weight_list='Random_Weights', my_networkX_graph=my_graph)
+            # Set random weights and bias
+            set_weight(my_graph, weight_list='Random_Weights')
+            set_bias(my_graph, bias_list='Random_Bias')
+            graph_store[depth_iter + 1] = my_graph
 
             # Generate the ising hamiltonian
-            my_ising_ham = ising_matrix(myGraph.networkX_graph)
+            my_ising_ham = ising_matrix(my_graph)
 
-            # Store the ising evolution
+            # Generate and Store the ising evolution
             matrix_operator_depth[depth_iter + 1] = spy.linalg.expm(-1j * my_ising_ham * total_time)
 
         self.matrix_operator_depth = matrix_operator_depth
+        self.graph_store = graph_store
+
+    def show_example(self, number_of_qubits=8, total_time=1, total_depth=2):
+        # For debugging purposes, to test out the 'config' class method
+        self.config(number_of_qubits, total_time, total_depth)
+
+
+def set_weight(my_graph, weight_list):
+    """
+    Set the weights attributes of all edges in the given graph.
+
+    Parameters
+    ----------
+    my_graph: class
+        A graph of interest defined as a instance of a class <networkx.classes.graph.Graph>
+    weight_list: string
+        A setting to tell the function to use the appropriate subroutines set the correct graphs.
+        'No_Weights': Set weight =1 (non-weighted) graphs.
+        'Random_Weights': Set random weighted graphs.
+    """
+    for edge in my_graph.edges():
+        if weight_list == 'No_Weights':
+            my_graph[edge[0]][edge[1]]['weight'] = 1
+
+        elif weight_list == 'Random_Weights':
+            my_graph[edge[0]][edge[1]]['weight'] = default_rng().uniform(-1, 1)
+
+    return None
+
+
+def set_bias(my_graph, bias_list):
+    """
+    Set the weights attributes of all edges in the given graph.
+
+    Parameters
+    ----------
+    my_graph: class
+        A graph of interest defined as a instance of a class <networkx.classes.graph.Graph>
+    bias_list: string
+        A setting to tell the function to use the appropriate subroutines set the correct graphs.
+        'No_Bias': Set bias =0 (non-bias) graphs.
+        'Random_Bias': Set random bias node graphs.
+    """
+    for node in my_graph.nodes():
+        if bias_list == 'No_Bias':
+            my_graph.nodes[node]['bias'] = 0
+
+        elif bias_list == 'Random_Bias':
+            my_graph.nodes[node]['bias'] = default_rng().uniform(-1, 1)
+
+    return None
 
 
 def generate_tensor_ZZ_guide(no_of_qubits, edge_list):
@@ -397,19 +296,19 @@ def generate_tensor_ZZ_guide(no_of_qubits, edge_list):
     return output_list
 
 
-def ising_matrix(myGraph):
+def ising_matrix(my_graph):
     """
     Output a numpy ising matrix.
 
     Parameter
     ---------
-    myGraph: networkX graph object
+    my_graph: networkX graph object
         A graph that contains information of the vertices and edges, it must contain weight information.
     """
     # Prepare the graph information to be used for ZZ.
-    number_of_qubits = myGraph.number_of_nodes()
-    edge_list = list(myGraph.edges())
-    weight_list = [myGraph.edges[edge_iter]['weight'] for edge_iter in edge_list]
+    number_of_qubits = my_graph.number_of_nodes()
+    edge_list = list(my_graph.edges())
+    weight_list = [my_graph.edges[edge_iter]['weight'] for edge_iter in edge_list]
 
     # Prepare matrices to be used for ZZ.
     output_zz_matrix = np.zeros((2 ** number_of_qubits, 2 ** number_of_qubits), dtype=complex)
@@ -469,7 +368,7 @@ def ising_matrix(myGraph):
         temp_pause_first = 1
         for check_gate in row:
             if check_gate == 1:
-                quantum_gate = x_pauli * myGraph.nodes[node_iter]['bias']
+                quantum_gate = x_pauli * my_graph.nodes[node_iter]['bias']
                 node_iter += 1
 
             elif check_gate == 0:
@@ -489,26 +388,34 @@ def ising_matrix(myGraph):
 
 class QuantumEncoding:
     """
+    To allow generation of matrix operators that encodes the classical data.
+
     Attributes
     ----------
-
+    select_encoding: str
+        See __init__ method
+    matrix_operator: numpy array
+        The encoding matrix operator that pertains to one single x coordinate data.
     """
-    def __init__(self):
-        """
-        Parameters
-        ----------
 
-        """
+    def __init__(self):
+        print("Select QuantumEncoding:\n")
+        print("1. 'ryasin'        -> RY(arcsin(x))")
+        print("2. 'rzacos_ryasin' -> RZ(arccos(x^2))RY(arcsin(x))\n")
+        print("To select: use QuantumEncoding().config(select_encoding='_<your_selection_here>_') \n \n")
 
     def config(self, select_encoding):
         """
+        For users to set their preferred encoding.
+
         Parameters
         ----------
-
+        select_encoding: str
+            See __init__ method
         """
         self.select_encoding = select_encoding
 
-    def encode_data(self, no_of_qubits, teacher_x_data):
+    def encode_data(self, number_of_qubits, teacher_x_single_data):
         """
         Generates the operator matrix that will encode the data into the quantum state.
 
@@ -519,35 +426,81 @@ class QuantumEncoding:
         teacher_x_single_data : float
             Just one x data value from the TeacherModel.
         """
-        if self.select_encoding == "RY_arcsin":
-            self.matrix_operator = encoding_RY_arcsin(no_of_qubits, teacher_x_data)
+        encode_selection = get_encoding()
+        encode_model = encode_selection[self.select_encoding]
+        encode_operator_single_qubit = encode_model(teacher_x_single_data)
+
+        if number_of_qubits == 1:
+            self.matrix_operator = encode_operator_single_qubit
+        else:
+            temp_mat = encode_operator_single_qubit
+            for _ in range(number_of_qubits - 1):
+                temp_mat = np.kron(temp_mat, encode_operator_single_qubit)
+
+            self.matrix_operator = temp_mat
+
+    def show_example(self, number_of_qubits, teacher_x_single_data):
+        # For debugging purposes, to test out the 'encode_data' class method
+        self.encode_data(number_of_qubits, teacher_x_single_data)
 
 
-def encoding_RY_arcsin(number_of_qubits, teacher_x_single_data):
+def get_encoding():
+    dict_of_models = {"ryasin": ryasin,
+                      "rzacos_ryasin": rzacos_ryasin,
+                      }
+    return dict_of_models
+
+
+def ryasin(teacher_x_single_data):
     """
-    Generate the operator matrix that products of Pauli_Y(arcsin(x)).
+    Generate the operator matrix of Pauli_Y(arcsin(x)).
 
     Parameters
     ----------
-    number_of_qubits : int
-        The total number of qubits in the quantum circuit.
     teacher_x_single_data : float
         Just one x data value from the TeacherModel.
     """
     arcsin_x = m.asin(teacher_x_single_data)
-    RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, 1j], [1j, 0]])
-    if number_of_qubits == 1:
-        return RY_arcsin_x
-    else:
-        temp_mat = RY_arcsin_x
-        for _ in range(number_of_qubits - 1):
-            temp_mat = np.kron(temp_mat, RY_arcsin_x)
+    RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
 
-        return temp_mat
+    return RY_arcsin_x
+
+
+def rzacos_ryasin(teacher_x_single_data):
+    """
+    Generate the operator matrix of Pauli_Z(arccos(x^2)) * Pauli_Y(arcsin(x)).
+
+    Parameters
+    ----------
+    teacher_x_single_data : float
+        Just one x data value from the TeacherModel.
+    """
+    arcsin_x = m.asin(teacher_x_single_data)
+    arccos_x2 = m.acos(teacher_x_single_data**2)
+    RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+    RZ_arccos_x2 = np.cos(arccos_x2 / 2) * np.eye(2) - 1j * np.sin(arccos_x2 / 2) * np.array([[1, 0], [0, -1]])
+
+    return np.matmul(RZ_arccos_x2, RY_arcsin_x)
 
 
 class SingleQubitRotationBlock:
+    """
+    Allow generation and related calculations of the Single Qubit XZX Rotation Matrix Operators.
+
+    Attributes
+    ----------
+    number_of_qubits: int
+        The total number of qubits in the quantum circuit.
+    total_depth: int
+        The number of times the evolution is repeated, before the mixer/entangling block.
+    parameter_dict: dict
+         Contains all angular parmaters organised (NOT sorted) by depth, qubit, and rotate_gate_iter.
+    matrix_operator_depth: dict
+        Contains all matrix operators organised (NOT sorted) by depth
+    """
+
     def __init__(self):
+        print("Note: 'SingleQubitRotationBlock' class does not have any user config settings.")
         pass
 
     def config(self, number_of_qubits, total_depth):
@@ -557,7 +510,7 @@ class SingleQubitRotationBlock:
         # For the xzx model, the total number of parameters is= 3 * number_of_qubits * total_depth.
         # We shall randomly initialise the angular rotation parameters when first created.
         parameter_dict = {}  # Prepare two empty dictionary to store the angular rotation parameters
-        matrix_operator_depth = {}  # and to store matrix operator
+        matrix_operator_depth = {}  # and to store matrix operator at every depth
         for depth_iter in range(total_depth):
             parameter_dict[depth_iter+1] = {}
             first_qubit = 1
@@ -568,8 +521,8 @@ class SingleQubitRotationBlock:
 
                 for rotate_gate_iter in range(3):
                     # Note that rotation gates RxRzRx are represented as ("rotate_gate_iter"+1): 1,2,3
-                    # Randomly choose angular parameters from a uniform distribution [-pi/2,pi/2]
-                    parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = default_rng().uniform(-m.pi/2, m.pi/2)
+                    # Randomly choose angular parameters from a uniform distribution [-pi/2,pi/2] when first initialized.
+                    parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = default_rng().uniform(0, 2*m.pi)
 
                     # Carefully construct the matrix operator gate by gate for a qubit
                     if ((rotate_gate_iter+1) == 1) or ((rotate_gate_iter+1) == 3):
@@ -597,7 +550,7 @@ class SingleQubitRotationBlock:
 
     def parameter_shift(self, shift, depth_shift, qubit_shift, rotate_gate_shift):
         """
-        Returns a whole matrix operator shifted at a particulatar depth.
+        Return a whole matrix operator shifted at a particulatar depth. Does not affect the current parameters or matrix operators.
 
         Parameters
         ----------
@@ -651,7 +604,15 @@ class SingleQubitRotationBlock:
         return temp_rotate
 
     def update_params(self, new_params):
-        matrix_operator_depth = {}  # and to store matrix operator
+        """
+        Update all the angular parameters.
+
+        Parameters
+        ----------
+        new_params: dict
+            Contains new angular parameters.
+        """
+        matrix_operator_depth = {}  # To store new matrix operator at every depth
         for depth_iter in range(self.total_depth):
             first_qubit = 1
 
@@ -686,55 +647,84 @@ class SingleQubitRotationBlock:
 
 
 def rotate_x(angle):
-    return np.array([[m.cos(angle/2), -1j*m.sin(angle/2)], [-1j*m.sin(angle/2), m.cos(angle/2)]],dtype = 'complex_')
+    return np.array([[m.cos(angle/2), -1j*m.sin(angle/2)], [-1j*m.sin(angle/2), m.cos(angle/2)]], dtype='complex_')
+
 
 def rotate_y(angle):
-    return np.array([[m.cos(angle/2), -1*m.sin(angle/2)], [m.sin(angle/2), m.cos(angle/2)]],dtype = 'complex_')
+    return np.array([[m.cos(angle/2), -1*m.sin(angle/2)], [m.sin(angle/2), m.cos(angle/2)]], dtype='complex_')
+
 
 def rotate_z(angle):
-    return np.array([[m.cos(angle/2) - 1j*m.sin(angle/2), 0], [0, m.cos(angle/2) + 1j*m.sin(angle/2)]],dtype = 'complex_')
+    return np.array([[m.cos(angle/2) - 1j*m.sin(angle/2), 0], [0, m.cos(angle/2) + 1j*m.sin(angle/2)]], dtype='complex_')
+
 
 class QuantumMeasurement:
     """
-    Attributes.
+    To allow the generation of measurement operators.
 
+    Attributes
     ----------
-
-
+    select_measurement: str
+            See __init__ method
+    matrix_operator: numpy array
+        The obeservable matrix.
     """
 
     def __init__(self):
-        """
-        Parameters
-        ----------
-
-        """
-        pass
+        print("Select QuantumMeasurement:\n")
+        print("1. 'first_qubit_Z'  -> To measure <Z> expectation of the first qubit.\n")
+        print("To select: use QuantumMeasurement().config(select_measurement='_<your_selection_here>_') \n \n")
 
     def config(self, select_measurement):
         """
+        For users to set their preferred measurement.
+
         Parameters
         ----------
-
+        select_measurement: str
+            See __init__ method
         """
         self.select_measurement = select_measurement
 
     def create_observable(self, number_of_qubits):
-        if self.select_measurement == "first_qubit_Z":
-            self.matrix_operator = first_qubit_Z(number_of_qubits)
+        """
+        Generate the observable matrix.
+
+        Parameters
+        ----------
+        number_of_qubits: int
+            The total number of qubits in the quantum circuit.
+        """
+        measure_selection = get_measurement()
+        measure_model = measure_selection[self.select_measurement]
+        self.matrix_operator = measure_model(number_of_qubits)
+
+
+def get_measurement():
+    dict_of_models = {"first_qubit_Z": first_qubit_Z,
+                      }
+    return dict_of_models
 
 
 def first_qubit_Z(number_of_qubits):
-    observable = np.zeros((2 ** number_of_qubits, 2 ** number_of_qubits), dtype=complex)
-    z_pauli_vector = np.array([1, -1], dtype=complex)
-    identity_vector = np.array([1, 1], dtype=complex)
+    """
+    Generate the observable matrix that corresponds to Z measurement in the first qubit.
+
+    Parameters
+    ----------
+    number_of_qubits: int
+        The total number of qubits in the quantum circuit.
+    """
+    # Initalise the numpy array
+    observable = np.zeros((2 ** number_of_qubits, 2 ** number_of_qubits))
+
+    # Accelerate the computation by exploiting the diagonals.
+    z_pauli_vector = np.array([1, -1])
+    identity_vector = np.array([1, 1])
     if number_of_qubits == 1:
         for i in range(2 ** number_of_qubits):
             observable[i][i] += z_pauli_vector[i]
 
-    elif number_of_qubits == 2:
-        for i in range(2 ** number_of_qubits):
-            observable[i][i] += np.kron(z_pauli_vector, identity_vector)[i]
     else:
         temp = np.kron(z_pauli_vector, identity_vector)
         for _ in range(number_of_qubits - 2):
@@ -748,46 +738,84 @@ def first_qubit_Z(number_of_qubits):
 
 class QuantumComputer:
     """
+    To the allow high level control over of the quantum computation.
+
     Attributes
     ----------
-
+    number_of_qubits: int
+        The number of qubit that the quantum computer uses for simulation.
+    depth: int
+        The number of repeating layers of 'HamlitonianMixerBlock' and 'SingleQubitRotationBlock'.
+    Encode : 'QuantumEncoding' class
+    A : 'HamlitonianMixerBlock' class
+    B : 'SingleQubitRotationBlock' class
+    Observable: 'QuantumMeasurement' class
     """
+
     def __init__(self):
+        print("Note: 'QuantumComputer' uses the Quantum Circuit Learning Model.\n")
+        print("Config Settings Available:\n")
+        print("* number_of_qubits [int]: The number of qubit that the quantum computer uses for simulation.")
+        print("* depth [int]: The number of repeating layers of 'HamlitonianMixerBlock' and 'SingleQubitRotationBlock'.\n")
+        print("To select: use QuantumComputer().config() \n \n")
+        print("Required Component Inputs to QuantumComputer:\n")
+        print("1. Encode: 'QuantumEncoding' class")
+        print("2. A : 'HamlitonianMixerBlock' class")
+        print("3. B : 'SingleQubitRotationBlock' class")
+        print("4. Observable: 'QuantumMeasurement' class\n")
+        print("To input: use QuantumComputer().input(Encode, A, B, Observable)")
+        print("Note: Please run '.config()' first before running '.inputs()' \n")
+
+    def config(self, number_of_qubits=3, depth=2, ):
         """
+        User setting for quantum computer simulation.
+
         Parameters
         ----------
-
+        number_of_qubits: int
+            The number of qubit that the quantum computer uses for simulation.
+        depth: int
+            The number of repeating layers of 'HamlitonianMixerBlock' and 'SingleQubitRotationBlock'.
         """
-        return None
-
-    def config(self, select_qc_model="AB_repeat", number_of_qubits=2, depth=2, ):
-        """
-        Parameters
-        ----------
-
-        """
-        self.select_qc_model = select_qc_model
         self.number_of_qubits = number_of_qubits
         self.depth = depth
 
     def inputs(self, Encode, A, B, Observable,):
         """
+        User inputs of quantum components that defines the quantum computation.
+
         Parameters
         ----------
-
+        Encode : 'QuantumEncoding' class
+        A : 'HamlitonianMixerBlock' class
+        B : 'SingleQubitRotationBlock' class
+        Observable: 'QuantumMeasurement' class
         """
+        # Setup the quantum components
         A.config(self.number_of_qubits, total_time=10, total_depth=self.depth)
         B.config(self.number_of_qubits, total_depth=self.depth)
         Observable.create_observable(self.number_of_qubits)
+
         self.Encode = Encode
-        self.A = A  # Assumes this to be a fixed gate
-        self.B = B  # Assume this to be parameterised gate
+        self.A = A
+        self.B = B
         self.Observable = Observable
 
-        return None
+    def run_qc(self, teacher_x_single_data):
+        """
+        Run the quantum computer given the single x data coordinate and measure the result.
 
-    def run_qc(self, input_data):
-        self.Encode.encode_data(self.number_of_qubits, input_data)
+        Paramters
+        ---------
+        teacher_x_single_data : float
+            Just one x data value from the TeacherModel.
+
+        Output
+        ------
+        output_result : dict
+            Contains the measurement result and the gradient wrt to the parameters in B.
+        """
+        self.Encode.encode_data(self.number_of_qubits, teacher_x_single_data)
         initial_state = PureQuantumState.all_zero_qubit(self.number_of_qubits)
 
         # Encoding data
@@ -842,7 +870,12 @@ class QuantumComputer:
         return output_result
 
     def update_params(self, new_params):
+        """
+        Update the parameters of B.
+
+        Parameters
+        ----------
+        new_params: dict
+            Contains new angular parameters.
+        """
         self.B.update_params(new_params)
-
-
-
