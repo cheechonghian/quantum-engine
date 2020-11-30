@@ -178,7 +178,7 @@ def quadratic_loss(B, training_data, predict_y, predict_y_parameter_gradient, a)
      predict_y_parameter_gradient: dict
         This contains the grad of <Z> for every data x
      a: float
-        The free parameter to optimise
+        The free parameter to optimis
     """
     # Quadratic loss formula
     loss = np.sum(np.square(training_data["y_data"] - a * np.asarray(predict_y)))
