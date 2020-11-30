@@ -414,6 +414,9 @@ class QuantumEncoding:
             See __init__ method
         """
         self.select_encoding = select_encoding
+        encode_selection = get_encoding()
+        self.encode_model = encode_selection[self.select_encoding]()
+        self.number_of_encode_rotate_gates = self.encode_model.number_rotate_gates
 
     def encode_data(self, number_of_qubits, teacher_x_single_data):
         """
@@ -426,9 +429,7 @@ class QuantumEncoding:
         teacher_x_single_data : float
             Just one x data value from the TeacherModel.
         """
-        encode_selection = get_encoding()
-        encode_model = encode_selection[self.select_encoding]
-        encode_operator_single_qubit = encode_model(teacher_x_single_data)
+        encode_operator_single_qubit = self.encode_model.get_single_qubit_matrix_operator(teacher_x_single_data)
 
         if number_of_qubits == 1:
             self.matrix_operator = encode_operator_single_qubit
@@ -439,9 +440,55 @@ class QuantumEncoding:
 
             self.matrix_operator = temp_mat
 
-    def show_example(self, number_of_qubits, teacher_x_single_data):
-        # For debugging purposes, to test out the 'encode_data' class method
-        self.encode_data(number_of_qubits, teacher_x_single_data)
+    def encode_data_shift_x(self, number_of_qubits, teacher_x_single_data):
+        # generate
+        matrix_operator_shift_dict = {}
+        for qubit_shift_iter in range(number_of_qubits):
+
+            matrix_operator_shift_dict[qubit_shift_iter+1] = {}
+            for encode_rotate_gate_shift_iter in range(self.number_of_encode_rotate_gates):
+
+                matrix_operator_shift_dict[qubit_shift_iter+1][encode_rotate_gate_shift_iter+1] = {}
+                for x_shift in ["plus", "minus"]:
+                    encode_operator_single_qubit_shift = self.encode_model.get_single_qubit_matrix_operator_shift(teacher_x_single_data, encode_rotate_gate_shift_iter, x_shift)
+
+                    # Build the correct encoding matrix operator shifted for every qubit and rotation qubit
+                    if number_of_qubits == 1:
+                        matrix_operator_shift_dict[qubit_shift_iter+1][encode_rotate_gate_shift_iter+1][x_shift] = encode_operator_single_qubit_shift
+                    else:
+                        place_list = np.zeros(number_of_qubits)
+                        place_list[qubit_shift_iter] += 1
+                        temp_pause_first = 1
+                        for qubit_check_iter in range(number_of_qubits - 1):
+                            if temp_pause_first == 1:
+                                if place_list[qubit_check_iter] == 1:
+                                    temp_mat = encode_operator_single_qubit_shift
+                                else:
+                                    temp_mat = self.encode_model.get_single_qubit_matrix_operator(teacher_x_single_data)
+                                temp_pause_first = 0
+
+                            else:
+                                if place_list[qubit_check_iter] == 1:
+                                    second_mat = encode_operator_single_qubit_shift
+                                else:
+                                    second_mat = self.encode_model.get_single_qubit_matrix_operator(teacher_x_single_data)
+
+                            temp_mat = np.kron(temp_mat, second_mat)
+
+                        matrix_operator_shift_dict[qubit_shift_iter+1][encode_rotate_gate_shift_iter+1][x_shift] = temp_mat
+
+        self.matrix_operator_shift_dict = matrix_operator_shift_dict
+
+    def get_gradients_for_shift_x(self, number_of_qubits, output_result_shift_x):
+        # To generate
+        """
+        shift_x_result = {"output_gradient_x_data": output_gradient_x_data,
+                          "gradient_x_parameter_dict" : gradient_x_parameter_dict,
+                          }
+
+        return shift_x_result
+        """
+        pass
 
 
 def get_encoding():
@@ -451,37 +498,160 @@ def get_encoding():
     return dict_of_models
 
 
-def ryasin(teacher_x_single_data):
-    """
-    Generate the operator matrix of Pauli_Y(arcsin(x)).
-
-    Parameters
-    ----------
-    teacher_x_single_data : float
-        Just one x data value from the TeacherModel.
-    """
-    arcsin_x = m.asin(teacher_x_single_data)
-    RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
-
-    return RY_arcsin_x
+# def get_encoding_number_rotate_gates():
+#     dict_of_models = {"ryasin": 1,
+#                       "rzacos_ryasin": 2,
+#                       }
+#     return dict_of_models
 
 
-def rzacos_ryasin(teacher_x_single_data):
-    """
-    Generate the operator matrix of Pauli_Z(arccos(x^2)) * Pauli_Y(arcsin(x)).
+# def get_encoding_number_rotate_gates():
+#     dict_of_models = {"ryasin": 1,
+#                       "rzacos_ryasin": 2,
+#                       }
+#     return dict_of_models
 
-    Parameters
-    ----------
-    teacher_x_single_data : float
-        Just one x data value from the TeacherModel.
-    """
-    arcsin_x = m.asin(teacher_x_single_data)
-    arccos_x2 = m.acos(teacher_x_single_data**2)
-    RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
-    RZ_arccos_x2 = np.cos(arccos_x2 / 2) * np.eye(2) - 1j * np.sin(arccos_x2 / 2) * np.array([[1, 0], [0, -1]])
 
-    return np.matmul(RZ_arccos_x2, RY_arcsin_x)
+# def ryasin(teacher_x_single_data):
+#     """
+#     Generate the operator matrix of Pauli_Y(arcsin(x)).
 
+#     Parameters
+#     ----------
+#     teacher_x_single_data : float
+#         Just one x data value from the TeacherModel.
+#     """
+#     arcsin_x = m.asin(teacher_x_single_data)
+#     RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+
+#     return RY_arcsin_x
+
+
+# def rzacos_ryasin(teacher_x_single_data):
+#     """
+#     Generate the operator matrix of Pauli_Z(arccos(x^2)) * Pauli_Y(arcsin(x)).
+
+#     Parameters
+#     ----------
+#     teacher_x_single_data : float
+#         Just one x data value from the TeacherModel.
+#     """
+#     arcsin_x = m.asin(teacher_x_single_data)
+#     arccos_x2 = m.acos(teacher_x_single_data**2)
+#     RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+#     RZ_arccos_x2 = np.cos(arccos_x2 / 2) * np.eye(2) - 1j * np.sin(arccos_x2 / 2) * np.array([[1, 0], [0, -1]])
+
+#     return np.matmul(RZ_arccos_x2, RY_arcsin_x)
+
+
+class ryasin:
+    def __init__(self):
+        self.number_rotate_gates = 1
+
+    def get_single_qubit_matrix_operator(self, teacher_x_single_data):
+        """
+        Generate the operator matrix of Pauli_Y(arcsin(x)).
+
+        Parameters
+        ----------
+        teacher_x_single_data : float
+            Just one x data value from the TeacherModel.
+        """
+        arcsin_x = m.asin(teacher_x_single_data)
+        RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+
+        return RY_arcsin_x
+
+    def calculate_x_gradient(self, teacher_x_single_data, gradient_PCR):
+        """
+        Calculate the full x gradient.
+
+        gradient_PCR : list
+
+        """
+        x_gradient = gradient_PCR[0] / m.sqrt(1-teacher_x_single_data**2)
+
+        return x_gradient
+
+    def get_single_qubit_matrix_operator_shift(self, teacher_x_single_data, encode_rotate_gate_shift_iter, x_shift):
+        """
+        Generate the operator matrix shifted of Pauli_Y(arcsin(x) +- pi/2 ).
+
+        Parameters
+        ----------
+        teacher_x_single_data : float
+            Just one x data value from the TeacherModel.
+        """
+        assert encode_rotate_gate_shift_iter == 0, "'encode_rotate_gate_shift_iter' is not zero"
+        if x_shift == 'plus':
+            angle_shift = m.pi/2
+        if x_shift == 'minus':
+            angle_shift = -m.pi/2
+
+        arcsin_x = m.asin(teacher_x_single_data)
+        arcsin_x += angle_shift
+        RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+
+        return RY_arcsin_x
+
+
+class rzacos_ryasin:
+    def __init__(self):
+        self.number_rotate_gates = 2
+
+    def get_single_qubit_matrix_operator(self, teacher_x_single_data):
+        """
+        Generate the operator matrix of Pauli_Z(arccos(x^2)) * Pauli_Y(arcsin(x)).
+
+        Parameters
+        ----------
+        teacher_x_single_data : float
+            Just one x data value from the TeacherModel.
+        """
+        arcsin_x = m.asin(teacher_x_single_data)
+        arccos_x2 = m.acos(teacher_x_single_data**2)
+        RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+        RZ_arccos_x2 = np.cos(arccos_x2 / 2) * np.eye(2) - 1j * np.sin(arccos_x2 / 2) * np.array([[1, 0], [0, -1]])
+
+        return np.matmul(RZ_arccos_x2, RY_arcsin_x)
+
+    def calculate_x_gradient(self, teacher_x_single_data, gradient_PCR):
+        """
+        Calculate the full x gradient.
+
+        gradient_PCR : list
+
+        """
+        x_gradient = x_gradient = gradient_PCR[0] / m.sqrt(1-teacher_x_single_data**2) - 2*teacher_x_single_data*gradient_PCR[1] / m.sqrt(1-teacher_x_single_data**4)
+
+        return x_gradient
+
+    def get_single_qubit_matrix_operator_shift(self, teacher_x_single_data, encode_rotate_gate_shift_iter, x_shift):
+        """
+        Generate the operator matrix shifted of Pauli_Z(arccos(x^2) +- pi/2 ) * Pauli_Y(arcsin(x) +- pi/2 )
+
+        Parameters
+        ----------
+        teacher_x_single_data : float
+            Just one x data value from the TeacherModel.
+        """
+        if x_shift == 'plus':
+            angle_shift = m.pi/2
+        if x_shift == 'minus':
+            angle_shift = -m.pi/2
+
+        arcsin_x = m.asin(teacher_x_single_data)
+        arccos_x2 = m.acos(teacher_x_single_data**2)
+
+        if encode_rotate_gate_shift_iter == 0:
+            arcsin_x += angle_shift
+        if encode_rotate_gate_shift_iter == 1:
+            arccos_x2 += angle_shift
+
+        RY_arcsin_x = np.cos(arcsin_x / 2) * np.eye(2) - 1j * np.sin(arcsin_x / 2) * np.array([[0, -1j], [1j, 0]])
+        RZ_arccos_x2 = np.cos(arccos_x2 / 2) * np.eye(2) - 1j * np.sin(arccos_x2 / 2) * np.array([[1, 0], [0, -1]])
+
+        return np.matmul(RZ_arccos_x2, RY_arcsin_x)
 
 class SingleQubitRotationBlock:
     """
@@ -800,27 +970,52 @@ class QuantumComputer:
         self.A = A
         self.B = B
         self.Observable = Observable
+        self.initial_state = PureQuantumState.all_zero_qubit(self.number_of_qubits)
 
-    def run_qc(self, teacher_x_single_data):
+    def run_qc(self, teacher_x_single_data, shift_x):
+
+        self.Encode.encode_data(self.number_of_qubits, teacher_x_single_data)
+        encoded_state_vector = np.matmul(self.Encode.matrix_operator, self.initial_state.state_vector)
+        output_result = self.run_qc_main(self, teacher_x_single_data, encoded_state_vector)
+
+        # Get the gradients wrt inputs and wrt parameters.
+        if shift_x is True:
+            self.Encode.encode_data_shift_x(self.number_of_qubits, teacher_x_single_data)
+
+            output_result_shift_x = {}
+            for qubit_shift_iter in range(self.number_of_qubits):
+
+                output_result_shift_x[qubit_shift_iter+1] = {}
+                for encode_rotate_gate_shift_iter in range(len(self.Encode.number_of_encode_rotate_gates)):
+
+                    output_result_shift_x[qubit_shift_iter+1][encode_rotate_gate_shift_iter+1] = {}
+                    for x_shift in ["plus", "minus"]:
+                        encoded_state_vector_shift_x = np.matmul(self.Encode.matrix_operator_shift_dict[qubit_shift_iter+1][encode_rotate_gate_shift_iter+1][x_shift], self.initial_state.state_vector)
+                        output_result_shift_x[qubit_shift_iter+1][encode_rotate_gate_shift_iter+1][x_shift] = self.run_qc_main(self, teacher_x_single_data, encoded_state_vector_shift_x)
+
+            shift_x_result = self.Encode.get_gradients_for_shift_x(self.number_of_qubits, output_result_shift_x)
+            output_result["output_gradient_x_data"] = shift_x_result["output_gradient_x_data"]
+            output_result["gradient_x_parameter_dict"] = shift_x_result["gradient_x_parameter_dict"]
+
+        return output_result
+
+    def run_qc_main(self, teacher_x_single_data, encoded_state_vector):
         """
-        Run the quantum computer given the single x data coordinate and measure the result.
+        Run the quantum computer given the single x data coordinate, the encoded state and measure the result.
 
         Paramters
         ---------
         teacher_x_single_data : float
             Just one x data value from the TeacherModel.
 
+        encoded_state_vector: numpy vector
+            The quantum wavevector that represents the quantum state encoded with classical data
+
         Output
         ------
         output_result : dict
             Contains the measurement result and the gradient wrt to the parameters in B.
         """
-        self.Encode.encode_data(self.number_of_qubits, teacher_x_single_data)
-        initial_state = PureQuantumState.all_zero_qubit(self.number_of_qubits)
-
-        # Encoding data
-        encoded_state_vector = np.matmul(self.Encode.matrix_operator, initial_state.state_vector)
-
         # AB_Repeat
         temp_state_vector = encoded_state_vector
         for depth_iter in range(self.depth):

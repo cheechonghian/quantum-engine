@@ -79,6 +79,7 @@ class QuantumTrainer:
 
         optimiser_model_selection = get_optimise_models()
         optimiser_model = optimiser_model_selection[self.select_optimiser]
+
         optimiser_model(self.teacher_model, self.quantum_computer, loss_functions, self.optimiser_params)
 
 
@@ -118,13 +119,13 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions, o
         for data_iter in range(teacher_model.teacher_params["number_of_points"]):
 
             # Run the quantum circuit and get the <Z>
-            predict_result = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter])
+            predict_result = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter])  # Shift on??
 
-            # Save the results
+            # Save the results  ## Save it ito a single dictionary ##
             predict_y.append(predict_result["output_data"])
             predict_y_parameter_gradient[data_iter] = predict_result["gradient_parameter_dict"]
 
-        # Calculate the loss value and gradients wrt parameters
+        # Calculate the loss value and gradients wrt parameters   # Stream line the inputs \/           \/                    \/
         loss_result = loss_functions(quantum_computer.B, teacher_model.training_data, predict_y, predict_y_parameter_gradient, a)
         print(loss_result["loss"])
 
