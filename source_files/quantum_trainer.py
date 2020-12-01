@@ -5,7 +5,7 @@ Below contains Quantum Trainer operations for Quantum Circuit Learning.
 """
 
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class QuantumTrainer:
     """
@@ -60,6 +60,7 @@ class QuantumTrainer:
         self.optimiser_params = {"max_training_steps": max_training_steps,
                                  "learning_rate": learning_rate,
                                  }
+        self.quantum_result_store = QuantumResult()
 
     def inputs(self, teacher_model, quantum_computer):
         """
@@ -82,7 +83,9 @@ class QuantumTrainer:
         optimiser_model_selection = get_optimise_models()
         optimiser_model = optimiser_model_selection[self.select_optimiser]
 
-        optimiser_model(self.teacher_model, self.quantum_computer, loss_functions_model, self.optimiser_params)
+
+        self.quantum_result_store.save_names(loss_functions_model.name)
+        optimiser_model(self.teacher_model, self.quantum_computer, loss_functions_model, self.optimiser_params, self.quantum_result_store)
 
 
 def get_optimise_models():
@@ -98,7 +101,7 @@ def get_loss_functions():
     return dict_of_models
 
 
-def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_model, optimiser_params):
+def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_model, optimiser_params, quantum_result_store):
     """
     Apply the vanilla gradient descent without any modifications.
 
@@ -116,19 +119,23 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_mo
 
     # This the training loop
     for training_iter in range(optimiser_params["max_training_steps"]):
-
+        predict_result = {}
         predict_result_data = {}
         for data_iter in range(teacher_model.teacher_params["number_of_points"]):
 
             # Run the quantum circuit and get the <Z>
-            predict_result = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter], loss_functions_model.shift_x)
+            predict_result_measurements = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter], loss_functions_model.shift_x)
 
             # Save the results a single dictionary
-            predict_result_data[data_iter+1] = predict_result
+            predict_result_data[data_iter+1] = predict_result_measurements
+
+        predict_result['predict_result_data'] = predict_result_data
+        predict_result["a"] = a
+        quantum_result_store.save_training_result(predict_result)
 
         # Calculate the loss value and gradients wrt parameters.
-        predict_result_data["a"] = a
-        loss_result = loss_functions_model.calculate_loss(quantum_computer.B, teacher_model.training_data, predict_result_data)
+        loss_result = loss_functions_model.calculate_loss(quantum_computer.B, teacher_model.training_data, predict_result)
+        quantum_result_store.save_loss_result(loss_result)
         print(loss_result["loss"])
 
         # Update the parameters
@@ -136,7 +143,6 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_mo
         new_params = gradient_descent(quantum_computer.B, loss_result, optimiser_params)
         quantum_computer.update_params(new_params)
 
-    print(loss_result["loss"])
     print(f"a = {a}")
 
 
@@ -169,9 +175,7 @@ def gradient_descent(B, loss_result, optimiser_params):
 
 def extract_result(predict_result_data, result_type):
     result = []
-    # Note predict_result_data include "a" which must be excluded from total lenght
-    #                                              >|<
-    for data_iter in range(len(predict_result_data)-1):
+    for data_iter in range(len(predict_result_data)):
         result.append(predict_result_data[data_iter+1][result_type])
     return result
 
@@ -179,8 +183,9 @@ def extract_result(predict_result_data, result_type):
 class quadratic_loss:
     def __init__(self):
         self.shift_x = False
+        self.name = "Quadratic"
 
-    def calculate_loss(self, B, training_data, predict_result_data):
+    def calculate_loss(self, B, training_data, predict_result):
         """
         Calculate the loss value and gradient wrt parameters of a single training step.
 
@@ -189,18 +194,18 @@ class quadratic_loss:
         B : 'SingleQubitRotationBlock' class
         training_data : dict
           Contains x, y and gradient data of the model for training.
-        predict_result_data: dict
+        predict_result: dict
           This contains all neccessary quantites (unsorted) for every data, to calculate the loss function.
         """
         # Extract the result the iterates over all training data
-        predict_y = np.asarray(extract_result(predict_result_data, result_type="output_data"))
-        predict_y_parameter_gradient = extract_result(predict_result_data, result_type="gradient_parameter_dict")
+        predict_y = np.asarray(extract_result(predict_result['predict_result_data'], result_type="output_data"))
+        predict_y_parameter_gradient = extract_result(predict_result['predict_result_data'], result_type="gradient_parameter_dict")
 
         # Quadratic loss formula
-        loss = np.sum(np.square(training_data["y_data"] - predict_result_data["a"] * predict_y))
+        loss = np.sum(np.square(training_data["y_data"] - predict_result["a"] * predict_y))
 
         # The gradient of loss wrt a
-        a_gradient = np.sum(-2*(training_data["y_data"] - predict_result_data["a"] * predict_y) * predict_y)
+        a_gradient = np.sum(-2*(training_data["y_data"] - predict_result["a"] * predict_y) * predict_y)
 
         # Calculates the gradient of loss wrt parametes in B
         loss_gradient_parameter_dict = {}
@@ -218,7 +223,7 @@ class quadratic_loss:
                         parameter_gradient.append(predict_y_parameter_gradient[data_iter][depth_iter+1][qubit_iter+1][rotate_gate_iter+1])
 
                     # The gradient of loss wrt parametes in B
-                    loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result_data["a"] * predict_y) * (-2*predict_result_data["a"]*np.asarray(parameter_gradient)))
+                    loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result["a"] * predict_y) * (-2*predict_result["a"]*np.asarray(parameter_gradient)))
 
         loss_result = {"loss": loss,
                        "loss_gradient_parameter_dict": loss_gradient_parameter_dict,
@@ -230,8 +235,9 @@ class quadratic_loss:
 class sobolev_loss:
     def __init__(self):
         self.shift_x = True
+        self.name = "Sobolev"
 
-    def calculate_loss(self, B, training_data, predict_result_data):
+    def calculate_loss(self, B, training_data, predict_result):
         """
         Calculate the loss value and gradient wrt parameters of a single training step.
 
@@ -240,20 +246,20 @@ class sobolev_loss:
         B : 'SingleQubitRotationBlock' class
         training_data : dict
           Contains x, y and gradient data of the model for training.
-        predict_result_data: dict
+        predict_result: dict
           This contains all neccessary quantites (unsorted) for every data, to calculate the loss function.
         """
         # Extract the result the iterates over all training data
-        predict_y = np.asarray(extract_result(predict_result_data, result_type="output_data"))
-        predict_y_parameter_gradient = extract_result(predict_result_data, result_type="gradient_parameter_dict")
-        predict_gradient_x = np.asarray(extract_result(predict_result_data, result_type="output_gradient_x_data"))
-        predict_gradient_x_parameter_gradient = extract_result(predict_result_data, result_type="gradient_x_parameter_dict")
+        predict_y = np.asarray(extract_result(predict_result['predict_result_data'], result_type="output_data"))
+        predict_y_parameter_gradient = extract_result(predict_result['predict_result_data'], result_type="gradient_parameter_dict")
+        predict_gradient_x = np.asarray(extract_result(predict_result['predict_result_data'], result_type="output_gradient_x_data"))
+        predict_gradient_x_parameter_gradient = extract_result(predict_result['predict_result_data'], result_type="gradient_x_parameter_dict")
 
         # Sobolev loss formula
-        loss = np.sum(np.square(training_data["y_data"] - predict_result_data["a"] * predict_y) + np.square(training_data["y_data"] - predict_result_data["a"] * predict_gradient_x))
+        loss = np.sum(np.square(training_data["y_data"] - predict_result["a"] * predict_y) + np.square(training_data["y_data"] - predict_result["a"] * predict_gradient_x))
 
         # The gradient of loss wrt a
-        a_gradient = np.sum(-2*(training_data["y_data"] - predict_result_data["a"] * predict_y) * predict_y - 2*(training_data["y_data"] - predict_result_data["a"] * predict_gradient_x) * predict_gradient_x)
+        a_gradient = np.sum(-2*(training_data["y_data"] - predict_result["a"] * predict_y) * predict_y - 2*(training_data["y_data"] - predict_result["a"] * predict_gradient_x) * predict_gradient_x)
 
         # Calculates the gradient of loss wrt parametes in B
         loss_gradient_parameter_dict = {}
@@ -276,10 +282,61 @@ class sobolev_loss:
                     parameter_x_gradient = np.asarray(parameter_x_gradient)
 
                     # The gradient of loss wrt parametes in B
-                    loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result_data["a"] * predict_y) * (-2*predict_result_data["a"]*parameter_gradient) + (training_data["y_data"] - predict_result_data["a"] * predict_gradient_x) * (-2*predict_result_data["a"]*parameter_x_gradient))
+                    loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result["a"] * predict_y) * (-2*predict_result["a"]*parameter_gradient) + (training_data["y_data"] - predict_result["a"] * predict_gradient_x) * (-2*predict_result["a"]*parameter_x_gradient))
 
         loss_result = {"loss": loss,
                        "loss_gradient_parameter_dict": loss_gradient_parameter_dict,
                        "a_gradient": a_gradient}
 
         return loss_result
+
+
+class QuantumResult:
+    def __init__(self):
+        self.counter = 0
+        self.loss_training_history = []
+        self.loss_gradient_parameter_history = {}
+        self.parameter_a_training_history = []
+        self.parameter_a_gradient_training_history = []
+
+        self.quantum_model_y_prediction_training_history = {}
+        self.quantum_model_y_gradient_parameter_training_history = {}
+
+        self.quantum_model_gradient_x_prediction_training_history = {}
+        self.quantum_model_gradient_x_gradient_parameter_training_history = {}
+
+    def save_training_result(self, predict_result):
+        self.counter += 1
+
+        self.parameter_a_training_history.append(predict_result["a"])
+
+        predict_y = np.asarray(extract_result(predict_result['predict_result_data'], result_type="output_data"))
+        self.quantum_model_y_prediction_training_history[self.counter] = predict_y
+
+        predict_y_parameter_gradient = extract_result(predict_result['predict_result_data'], result_type="gradient_parameter_dict")
+        self.quantum_model_y_gradient_parameter_training_history[self.counter] = predict_y_parameter_gradient
+
+        if "output_gradient_x_data" in predict_result['predict_result_data'][1]:
+            predict_gradient_x = np.asarray(extract_result(predict_result['predict_result_data'], result_type="output_gradient_x_data"))
+            self.quantum_model_gradient_x_prediction_training_history[self.counter] = predict_gradient_x
+
+        if "gradient_x_parameter_dict" in predict_result['predict_result_data'][1]:
+            predict_gradient_x_parameter_gradient = extract_result(predict_result['predict_result_data'], result_type="gradient_x_parameter_dict")
+            self.quantum_model_gradient_x_gradient_parameter_training_history[self.counter] = predict_gradient_x_parameter_gradient
+
+    def save_loss_result(self, loss_result):
+        self.loss_training_history.append(loss_result["loss"])
+        self.loss_gradient_parameter_history[self.counter] = loss_result["loss_gradient_parameter_dict"]
+        self.parameter_a_gradient_training_history.append(loss_result["a_gradient"])
+
+    def save_names(self, loss_name):
+        self.loss_name = loss_name
+        pass
+
+    def plot_loss(self):
+        fig, ax = plt.subplots(dpi=100)
+        training_iter = np.arange(1, self.counter+1, 1)
+        ax.plot(training_iter, np.asarray(self.loss_training_history))
+        ax.set_ylabel(r"Loss $L$")
+        ax.set_xlabel("Training Epochs")
+        fig.suptitle("Loss Value ("+self.loss_name+")")
