@@ -19,22 +19,24 @@ class TeacherModel:
         Contains x, y and gradient data of the model for training.
     """
 
-    def __init__(self):
-        print("Select TeacherModel:\n")
-        print("1. 'lin'  -> bx+c")
-        print("2. 'quad' -> ax^2+bx+c")
-        print("3. 'sin'  -> a*sin(bx+c)")
-        print("4. 'cos'  -> a*cos(bx+c)")
-        print("5. 'tan'  -> a*tan(bx+c)")
-        print("6. 'exp'  -> a*exp(bx+c)")
-        print("7. 'log'  -> a*log(|bx+c|)\n")
-        print("To select: use TeacherModel().config(select_model='_<your_selection_here>_') \n \n")
-        print("Config Setting Available:\n")
-        print("* select_model [str]: (See Above)")
-        print("* x_lower_limit [int]: The lower bound of x data coordinate (beware of singularities)")
-        print("* x_upper_limit [int]: The upper bound of x data coordinate (beware of singularities)")
-        print("* number_of_points [int]: The number of data points that you want to use for training")
-        print("* a,b,c [float]: Model Parameters")
+    def __init__(self, verbose=True):
+        self.verbose = verbose
+        if verbose is True:
+            print("Select TeacherModel:\n")
+            print("1. 'lin'  -> bx+c")
+            print("2. 'quad' -> ax^2+bx+c")
+            print("3. 'sin'  -> a*sin(bx+c)")
+            print("4. 'cos'  -> a*cos(bx+c)")
+            print("5. 'tan'  -> a*tan(bx+c)")
+            print("6. 'exp'  -> a*exp(bx+c)")
+            print("7. 'log'  -> a*log(|bx+c|)\n")
+            print("To select: use TeacherModel().config(select_model='_<your_selection_here>_') \n \n")
+            print("Config Setting Available:\n")
+            print("* select_model [str]: (See Above)")
+            print("* x_lower_limit [int]: The lower bound of x data coordinate (beware of singularities)")
+            print("* x_upper_limit [int]: The upper bound of x data coordinate (beware of singularities)")
+            print("* number_of_points [int]: The number of data points that you want to use for training")
+            print("* a,b,c [float]: Model Parameters")
 
     def config(self, select_model="lin", x_lower_limit=-0.99, x_upper_limit=0.99, number_of_points=10, a=1.0, b=1.0, c=1.0,):
         """
