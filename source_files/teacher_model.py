@@ -122,46 +122,46 @@ class linear:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["b"] * x + teacher_params["c"]
         self.gen_y1d = teacher_params["b"] * np.ones(len(x))
-        self.name = "Linear Model\n" + r"$bx+c$" + "\n" + "$b=${:.1f}, $c=${:.1f}".format(teacher_params["b"], teacher_params["c"])
+        self.name = "Linear Model " + r"$bx+c$" + "\n" + "$b=${:.1f}, $c=${:.1f}".format(teacher_params["b"], teacher_params["c"])
 
 
 class quadratic:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["a"] * np.power(x, 2) + teacher_params["b"] * x + teacher_params["c"]
         self.gen_y1d = 2 * teacher_params["a"] * x + teacher_params["b"]
-        self.name = "Quadratic Model\n" + r"$ax^2+bx+c$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
+        self.name = "Quadratic Model " + r"$ax^2+bx+c$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
 
 
 class sine:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["a"] * np.sin(teacher_params["b"] * x + teacher_params["c"])
         self.gen_y1d = teacher_params["b"] * teacher_params["a"] * np.cos(teacher_params["b"] * x + teacher_params["c"])
-        self.name = "Sine Model\n" + r"$a*sin(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
+        self.name = "Sine Model " + r"$a*sin(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
 
 
 class cosine:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["a"] * np.cos(teacher_params["b"] * x + teacher_params["c"])
         self.gen_y1d = -1 * teacher_params["b"] * teacher_params["a"] * np.sin(teacher_params["b"] * x + teacher_params["c"])
-        self.name = "Cosine Model\n" + r"$a*cos(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
+        self.name = "Cosine Model " + r"$a*cos(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
 
 
 class tangent:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["a"] * np.tan(teacher_params["b"] * x + teacher_params["c"])
         self.gen_y1d = teacher_params["b"] * teacher_params["a"] * 1/np.square(np.cos(teacher_params["b"] * x + teacher_params["c"]))
-        self.name = "Tangent Model\n" + r"$a*tan(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
+        self.name = "Tangent Model " + r"$a*tan(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
 
 
 class exponential:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["a"] * np.exp(teacher_params["b"] * x + teacher_params["c"])
         self.gen_y1d = teacher_params["b"] * teacher_params["a"] * np.exp(teacher_params["b"] * x + teacher_params["c"])
-        self.name = "Exponential Model\n" + r"$a*exp(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
+        self.name = "Exponential Model " + r"$a*exp(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
 
 
 class logarithmic:
     def __init__(self, x, teacher_params):
         self.gen_y = teacher_params["a"] * np.log(np.abs(teacher_params["b"] * x + teacher_params["c"]))
         self.gen_y1d = teacher_params["b"] * teacher_params["a"] / (teacher_params["b"] * x + teacher_params["c"])
-        self.name = "Logarithmic Model\n" + r"$a*log(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])
+        self.name = "Logarithmic Model " + r"$a*log(bx+c)$" + "\n" + "$a=${:.1f}, $b=${:.1f}, $c=${:.1f}".format(teacher_params["a"], teacher_params["b"], teacher_params["c"])

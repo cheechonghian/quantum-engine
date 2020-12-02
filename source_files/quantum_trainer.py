@@ -7,6 +7,7 @@ Below contains Quantum Trainer operations for Quantum Circuit Learning.
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class QuantumTrainer:
     """
     To the allow high level control over of the quantum training.
@@ -77,15 +78,20 @@ class QuantumTrainer:
     def train(self):
         # Trains the quantum circuit in the quantum computer by using pre_input loss function and optimiser.
 
+        # Get the selected loss function
         loss_functions_selection = get_loss_functions()
         loss_functions_model = loss_functions_selection[self.select_loss]()
 
+        # Get the optimiser model
         optimiser_model_selection = get_optimise_models()
         optimiser_model = optimiser_model_selection[self.select_optimiser]
 
-
+        # Setup QuantumResults
         self.quantum_result_store.save_names(loss_functions_model.name)
-        optimiser_model(self.teacher_model, self.quantum_computer, loss_functions_model, self.optimiser_params, self.quantum_result_store)
+        self.quantum_result_store.save_training_date(self.teacher_model.training_data)
+
+        # Run the optimiser model with the selected loss function
+        optimiser_model(self.teacher_model, self.quantum_computer, loss_functions_model, self.quantum_result_store, self.optimiser_params)
 
 
 def get_optimise_models():
@@ -101,7 +107,7 @@ def get_loss_functions():
     return dict_of_models
 
 
-def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_model, optimiser_params, quantum_result_store):
+def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_model, quantum_result_store, optimiser_params,):
     """
     Apply the vanilla gradient descent without any modifications.
 
@@ -109,7 +115,9 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_mo
     ----------
     teacher_model: 'TeacherModel' class
     quantum_computer: 'QuantumComputer' class
-    loss_functions_model : A python class that calculates the loss value, gradient wrt parameters.
+    loss_functions_model : Loss function class
+        Calculates the loss value, gradient wrt parameters.
+    quantum_result_store: "QuantumResult" class
     optimiser_params: dict
         Contains user settings for the optimiser.
     """
@@ -121,14 +129,17 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_mo
     for training_iter in range(optimiser_params["max_training_steps"]):
         predict_result = {}
         predict_result_data = {}
+
+        # At every training step, input the data sequentially.
         for data_iter in range(teacher_model.teacher_params["number_of_points"]):
 
-            # Run the quantum circuit and get the <Z>
+            # Run the quantum circuit and get the <Z> measurement and its gradients
             predict_result_measurements = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter], loss_functions_model.shift_x)
 
             # Save the results a single dictionary
             predict_result_data[data_iter+1] = predict_result_measurements
 
+        # Package all results in another dictionary
         predict_result['predict_result_data'] = predict_result_data
         predict_result["a"] = a
         quantum_result_store.save_training_result(predict_result)
@@ -139,41 +150,70 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_mo
         print(loss_result["loss"])
 
         # Update the parameters
-        a -= optimiser_params["learning_rate"] * loss_result['a_gradient']
-        new_params = gradient_descent(quantum_computer.B, loss_result, optimiser_params)
-        quantum_computer.update_params(new_params)
-
-    print(f"a = {a}")
+        new_params = gradient_descent(quantum_computer.B, predict_result, loss_result, optimiser_params)
+        quantum_computer.update_params(new_params["parameter_theta"])
+        a = new_params["a"]
 
 
-def gradient_descent(B, loss_result, optimiser_params):
+def gradient_descent(B, predict_result, loss_result, optimiser_params):
     """
     Calculate and return the new parameters of quantum circuit for the next training step.
 
     Parameter
     ---------
     B : 'SingleQubitRotationBlock' class
+    predict_result: dict
+        Contains the old parameter a. It also contain other quantites (unsorted) for every data, to calculate the loss function. (which is not used in this function)
     loss_result : dict
         Contains the loss value and gradient wrt parameters of a single training step.
     optimiser_params: dict
         Contains user settings for the optimiser.
     """
+    # All new updated parameters will be stored here
+    new_params = {}
+
+    # Update parameter a
+    new_params["a"] = predict_result["a"] - optimiser_params["learning_rate"] * loss_result['a_gradient']
+
+    # Update the parameter in B
     loss_gradient_parameter_dict = loss_result["loss_gradient_parameter_dict"]
     old_params = B.parameter_dict
-    new_params = {}
+    new_params["parameter_theta"] = {}
     for depth_iter in range(B.total_depth):
-        new_params[depth_iter+1] = {}
+
+        new_params["parameter_theta"][depth_iter+1] = {}
         for qubit_iter in range(B.number_of_qubits):
-            new_params[depth_iter+1][qubit_iter+1] = {}
+
+            new_params["parameter_theta"][depth_iter+1][qubit_iter+1] = {}
             for rotate_gate_iter in range(3):
 
                 # The gradient descent update
-                new_params[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = old_params[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] - optimiser_params["learning_rate"] * loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1]
+                new_params["parameter_theta"][depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = old_params[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] - optimiser_params["learning_rate"] * loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1]
 
     return new_params
 
 
 def extract_result(predict_result_data, result_type):
+    """
+    Extract the required results by x training coordinates and put it in a list.
+
+    Parameters
+    ----------
+    predict_result_data: dict
+        The all result is organised by x training coordinates.
+        For example:
+            x data        Results
+            1             A1,B1,C1
+            2             A2,B2,C2
+            3             A3,B3,C3
+        This function will
+                        Result   x data
+        (result_type)-> A        A1,A2,A3 <-(Output)
+                        B        B1,B2,B3
+                        C        C1,C2,C3
+    result_type: str
+        A key value in predict_result_data, which you want to extract
+    """
     result = []
     for data_iter in range(len(predict_result_data)):
         result.append(predict_result_data[data_iter+1][result_type])
@@ -282,7 +322,7 @@ class sobolev_loss:
                     parameter_x_gradient = np.asarray(parameter_x_gradient)
 
                     # The gradient of loss wrt parametes in B
-                    loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result["a"] * predict_y) * (-2*predict_result["a"]*parameter_gradient) + (training_data["y_data"] - predict_result["a"] * predict_gradient_x) * (-2*predict_result["a"]*parameter_x_gradient))
+                    loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result["a"] * predict_y) * (-2*predict_result["a"]*parameter_gradient) + (training_data["y1d_data"] - predict_result["a"] * predict_gradient_x) * (-2*predict_result["a"]*parameter_x_gradient))
 
         loss_result = {"loss": loss,
                        "loss_gradient_parameter_dict": loss_gradient_parameter_dict,
@@ -304,6 +344,9 @@ class QuantumResult:
 
         self.quantum_model_gradient_x_prediction_training_history = {}
         self.quantum_model_gradient_x_gradient_parameter_training_history = {}
+
+    def save_training_date(self, training_data):
+        self.training_data = training_data
 
     def save_training_result(self, predict_result):
         self.counter += 1
@@ -340,3 +383,43 @@ class QuantumResult:
         ax.set_ylabel(r"Loss $L$")
         ax.set_xlabel("Training Epochs")
         fig.suptitle("Loss Value ("+self.loss_name+")")
+
+    def plot_a(self):
+        fig, ax = plt.subplots(dpi=100)
+        training_iter = np.arange(1, self.counter+1, 1)
+        ax.plot(training_iter, np.asarray(self.parameter_a_training_history))
+        ax.set_ylabel(r"Multiplier $a$")
+        ax.set_xlabel("Training Epochs")
+        fig.suptitle(r"Multiplier $a$ Value")
+
+    def plot_final_result(self):
+        fig, ax = plt.subplots(dpi=100)
+        prediction = self.parameter_a_training_history[-1] * self.quantum_model_y_prediction_training_history[self.counter]
+        initial = self.parameter_a_training_history[0] * self.quantum_model_y_prediction_training_history[1]
+        ax.plot(self.training_data['x_data'], prediction, label="Quantum (Trained)")
+        ax.plot(self.training_data['x_data'], initial, label="Quantum (Untrained)")
+        ax.plot(self.training_data["x_data"], self.training_data["y_data"], label="Teacher")
+        ax.set_ylabel(r"Function Model $f(x)$")
+        ax.set_xlabel(r"$x$")
+        ax.legend()
+        title = r"Quantum Circuit Learning" + "\n" + self.training_data["model_name"]
+        fig.suptitle(title, y=1.04)
+
+    def plot_final_result_gradient(self):
+        fig, ax = plt.subplots(dpi=100)
+        if bool(self.quantum_model_gradient_x_prediction_training_history) is True:
+            prediction = self.parameter_a_training_history[-1] * self.quantum_model_gradient_x_prediction_training_history[self.counter]
+            initial = self.parameter_a_training_history[0] * self.quantum_model_gradient_x_prediction_training_history[1]
+            ax.plot(self.training_data['x_data'], prediction, label="Quantum (Trained)")
+            ax.plot(self.training_data['x_data'], initial, label="Quantum (Untrained)")
+        else:
+            statement = "Note: Quantum Gradient is not available " + self.loss_name + "loss functions."
+            print(statement)
+
+        ax.plot(self.training_data["x_data"], self.training_data["y1d_data"], label="Teacher")
+        ax.set_ylabel(r"Gradient Model $f^{\prime}(x)$")
+        ax.set_xlabel(r"$x$")
+        ax.legend()
+        title = r"Quantum Circuit Learning" + "\n" + self.training_data["model_name"]
+        fig.suptitle(title, y=1.04)
+
