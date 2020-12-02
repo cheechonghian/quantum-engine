@@ -95,12 +95,14 @@ class QuantumTrainer:
 
 
 def get_optimise_models():
+    # This function all one to call a function/class by entering the name of it
     dict_of_models = {"GD": standard_gradient_descent,
                       }
     return dict_of_models
 
 
 def get_loss_functions():
+    # This function all one to call a function/class by entering the name of it
     dict_of_models = {"quad_loss": quadratic_loss,
                       "sobolev_loss": sobolev_loss,
                       }
@@ -333,6 +335,7 @@ class sobolev_loss:
 
 class QuantumResult:
     def __init__(self):
+        # Prepare the items to be save for analysis
         self.counter = 0
         self.loss_training_history = []
         self.loss_gradient_parameter_history = {}
@@ -346,9 +349,11 @@ class QuantumResult:
         self.quantum_model_gradient_x_gradient_parameter_training_history = {}
 
     def save_training_date(self, training_data):
+        # Save the teacher training data
         self.training_data = training_data
 
     def save_training_result(self, predict_result):
+        # Extract and organise the results before saving them
         self.counter += 1
 
         self.parameter_a_training_history.append(predict_result["a"])
@@ -368,15 +373,18 @@ class QuantumResult:
             self.quantum_model_gradient_x_gradient_parameter_training_history[self.counter] = predict_gradient_x_parameter_gradient
 
     def save_loss_result(self, loss_result):
+        # Save the calculation of the loss result.
         self.loss_training_history.append(loss_result["loss"])
         self.loss_gradient_parameter_history[self.counter] = loss_result["loss_gradient_parameter_dict"]
         self.parameter_a_gradient_training_history.append(loss_result["a_gradient"])
 
     def save_names(self, loss_name):
+        # Save the name of the loss function
         self.loss_name = loss_name
         pass
 
     def plot_loss(self):
+        # Plot loss value vs training iter.
         fig, ax = plt.subplots(dpi=100)
         training_iter = np.arange(1, self.counter+1, 1)
         ax.plot(training_iter, np.asarray(self.loss_training_history))
@@ -385,6 +393,7 @@ class QuantumResult:
         fig.suptitle("Loss Value ("+self.loss_name+")")
 
     def plot_a(self):
+        # Plot parameter a vs training iter
         fig, ax = plt.subplots(dpi=100)
         training_iter = np.arange(1, self.counter+1, 1)
         ax.plot(training_iter, np.asarray(self.parameter_a_training_history))
@@ -393,6 +402,7 @@ class QuantumResult:
         fig.suptitle(r"Multiplier $a$ Value")
 
     def plot_final_result(self):
+        # Plot the trained quantum model
         fig, ax = plt.subplots(dpi=100)
         prediction = self.parameter_a_training_history[-1] * self.quantum_model_y_prediction_training_history[self.counter]
         initial = self.parameter_a_training_history[0] * self.quantum_model_y_prediction_training_history[1]
@@ -406,6 +416,7 @@ class QuantumResult:
         fig.suptitle(title, y=1.04)
 
     def plot_final_result_gradient(self):
+        # Plot the gradient of the quantum model.
         fig, ax = plt.subplots(dpi=100)
         if bool(self.quantum_model_gradient_x_prediction_training_history) is True:
             prediction = self.parameter_a_training_history[-1] * self.quantum_model_gradient_x_prediction_training_history[self.counter]
