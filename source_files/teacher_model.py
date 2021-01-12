@@ -4,8 +4,8 @@ Created by Chee Chong Hian.
 Below contains Teacher Model operations for Quantum Circuit Learning.
 """
 import numpy as np
+import numpy.random as rand
 import matplotlib.pyplot as plt
-
 
 class TeacherModel:
     """
@@ -38,7 +38,7 @@ class TeacherModel:
             print("* number_of_points [int]: The number of data points that you want to use for training")
             print("* a,b,c [float]: Model Parameters")
 
-    def config(self, select_model="lin", x_lower_limit=-0.99, x_upper_limit=0.99, number_of_points=10, a=1.0, b=1.0, c=1.0,):
+    def config(self, select_model="lin", x_lower_limit=-0.99, x_upper_limit=0.99, number_of_points=10, a=1.0, b=1.0, c=1.0, split=None):
         """
         Apply configuration settings to teacher model and plot the teacher model.
 
@@ -52,7 +52,15 @@ class TeacherModel:
             The number of data points that you want to use for training
         a, b, c: float
             Required model parameters.
+        split: None or float
+            None: No spliting, train and test data will be equal to main data
+            The composition ratio of main data: train/test
+            Data are randomly picked.
+            closer to 1 -> more train
+            closer to 0 -> more test
+            equal to 0.5 -> equal split of main data
         """
+
         self.teacher_params = {"select_model": select_model,
                                "x_low_lim": x_lower_limit,
                                "x_upp_lim": x_upper_limit,
@@ -60,50 +68,117 @@ class TeacherModel:
                                "a": a,
                                "b": b,
                                "c": c,
+                               "split": split
                                }
-        self.training_data = generate_data(self.teacher_params)
-        print("Note: Training Data is initialized")
+        self.main_data = self.generate_data()
+        print("Note: Main Data is initialized")
 
-    # DEFUNCT method
-    def create_training_data(self):  # , number_of_points=10,):
-        self.training_data = generate_data(self.teacher_params)
+        ### To be DEFUNCT: Warning other code uses training data ####
+        #self.training_data = self.generate_data(self.teacher_params)
+        #self.testing_data = self.generate_data(self.teacher_params)
 
-    def plot_model(self):
-        # Plot the teacher model.
+        self.split_data()
+
+        # For plotting purposes
+        x_size = x_upper_limit - x_lower_limit
+        x_pad = x_size * 0.05
+        self.teacher_params["x_pad"] = x_pad
+
+        self.teacher_params["y_upp_lim"] = np.amax(self.main_data["y_data"])
+        self.teacher_params["y_low_lim"] = np.amin(self.main_data["y_data"])
+        y_size = self.teacher_params["y_upp_lim"] - self.teacher_params["y_low_lim"]
+        y_pad = y_size * 0.1
+        self.teacher_params["y_pad"] = y_pad
+
+        self.teacher_params["y1d_upp_lim"] = np.amax(self.main_data["y1d_data"])
+        self.teacher_params["y1d_low_lim"] = np.amin(self.main_data["y1d_data"])
+        y1d_size = self.teacher_params["y1d_upp_lim"] - self.teacher_params["y1d_low_lim"]
+        y1d_pad = y1d_size * 0.1
+        self.teacher_params["y1d_pad"] = y1d_pad
+
+    def plot_model(self, type="main", join_points=False):
         fig, ax = plt.subplots(2, 1, dpi=100, sharex=True)
-        ax[0].plot(self.training_data["x_data"], self.training_data["y_data"])
+        if type == "main":
+            data = self.main_data
+            join_points = True
+        elif type == "train":
+            data = self.training_data
+        elif type == "test":
+            data = self.testing_data
+
+        if join_points is False:
+            ax[0].scatter(data["x_data"], data["y_data"])
+        elif join_points is True:
+            ax[0].plot(data["x_data"], data["y_data"])
+
         ax[0].set_ylabel(r"Teacher $f(x)$")
-        ax[1].plot(self.training_data["x_data"], self.training_data["y1d_data"])
+        ax[0].set_xlim(self.teacher_params["x_low_lim"]-self.teacher_params["x_pad"], self.teacher_params["x_upp_lim"]+self.teacher_params["x_pad"])
+        ax[0].set_ylim(self.teacher_params["y_low_lim"]-self.teacher_params["y_pad"], self.teacher_params["y_upp_lim"]+self.teacher_params["y_pad"])
+
+        if join_points is False:
+            ax[1].scatter(data["x_data"], data["y1d_data"])
+        elif join_points is True:
+            ax[1].plot(data["x_data"], data["y1d_data"])
+
         ax[1].set_ylabel(r"Gradient $f^{\prime}(x)$")
         ax[1].set_xlabel(r"$x$")
+        ax[1].set_ylim(self.teacher_params["y1d_low_lim"]-self.teacher_params["y1d_pad"], self.teacher_params["y1d_upp_lim"]+self.teacher_params["y1d_pad"])
         fig.subplots_adjust(hspace=0.1)
-        fig.suptitle(self.training_data["model_name"], y=1.04)
+        fig.suptitle(data["model_name"], y=1.04)
 
+    def generate_data(self):
+        """
+        Generate (x,y) coordinate data.
 
-def generate_data(teacher_params):
-    """
-    Generate (x,y) coordinate data.
+        Parameters
+        ----------
+        teacher_params: dict
+            See top of code file.
+        """
+        x_data = np.linspace(self.teacher_params["x_low_lim"], self.teacher_params["x_upp_lim"], self.teacher_params["number_of_points"])
+        model_selection = get_models()
+        model = model_selection[self.teacher_params["select_model"]]
+        gen_model = model(x_data, self.teacher_params)
+        model_name = gen_model.name
+        y_data = gen_model.gen_y
+        y1d_data = gen_model.gen_y1d
 
-    Parameters
-    ----------
-    teacher_params: dict
-        See top of code file.
-    """
-    x_data = np.linspace(teacher_params["x_low_lim"], teacher_params["x_upp_lim"], teacher_params["number_of_points"])
-    model_selection = get_models()
-    model = model_selection[teacher_params["select_model"]]
-    gen_model = model(x_data, teacher_params)
-    model_name = gen_model.name
-    y_data = gen_model.gen_y
-    y1d_data = gen_model.gen_y1d
+        data = {"x_data": x_data,
+                "y_data": y_data,
+                "y1d_data": y1d_data,
+                "model_name": model_name,
+                }
 
-    data = {"x_data": x_data,
-            "y_data": y_data,
-            "y1d_data": y1d_data,
-            "model_name": model_name,
-            }
+        return data
 
-    return data
+    def split_data(self):
+        # To generate training and testing data
+        if self.teacher_params["split"] is None:
+            self.training_data = self.main_data
+            self.testing_data = self.main_data
+            print("Note: No data splitting was done. Training Data and Testing Data are equal to Main Data")
+        else:
+            self.num_of_point_train = round(self.teacher_params["number_of_points"] * self.teacher_params["split"])
+            self.num_of_point_test = self.teacher_params["number_of_points"] - self.num_of_point_train
+            print(self.num_of_point_train)
+            print(self.num_of_point_test)
+            rng = rand.default_rng()
+            train_data_index = rng.choice(self.teacher_params["number_of_points"], self.num_of_point_train, replace=False)
+            test_data_index = np.delete(np.arange(self.teacher_params["number_of_points"]), train_data_index)
+
+            self.training_data = {"x_data": self.main_data["x_data"][train_data_index],
+                                  "y_data": self.main_data["y_data"][train_data_index],
+                                  "y1d_data": self.main_data["y1d_data"][train_data_index],
+                                  "model_name": self.main_data["model_name"] + "\n Training Data",
+                                  }
+
+            self.testing_data = {"x_data": self.main_data["x_data"][test_data_index],
+                                 "y_data": self.main_data["y_data"][test_data_index],
+                                 "y1d_data": self.main_data["y1d_data"][test_data_index],
+                                 "model_name": self.main_data["model_name"] + "\n Testing Data",
+                                 }
+
+            print(f"Note: Data splitting completed. Training Data and Testing Data are split on a ratio: {self.teacher_params['split']}")
 
 
 def get_models():
