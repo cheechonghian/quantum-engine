@@ -97,6 +97,7 @@ class QuantumTrainer:
 def get_optimise_models():
     # This function all one to call a function/class by entering the name of it
     dict_of_models = {"GD": standard_gradient_descent,
+                      "NM": nelder_mead,
                       }
     return dict_of_models
 
@@ -109,7 +110,7 @@ def get_loss_functions():
     return dict_of_models
 
 
-def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_model, quantum_result_store, optimiser_params,):
+def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_model, quantum_result_store, optimiser_params,):  #*** The training loop has to be extracted, independent of the acutal optimizer ***
     """
     Apply the vanilla gradient descent without any modifications.
 
@@ -136,7 +137,7 @@ def standard_gradient_descent(teacher_model, quantum_computer, loss_functions_mo
         for data_iter in range(teacher_model.teacher_params["number_of_points"]):
 
             # Run the quantum circuit and get the <Z> measurement and its gradients
-            predict_result_measurements = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter], loss_functions_model.shift_x)
+            predict_result_measurements = quantum_computer.run_qc(teacher_model.training_data["x_data"][data_iter], loss_functions_model.shift_x)  #*** The optimiser is responsible for getting the information they need from loss function only NOT from computer. The loss function should provide functions for the optimiser to use to obtain such information. The loss function is responsible for getting information from a qc front interface. The qc front interface is responsible for directing the quantum computations.
 
             # Save the results a single dictionary
             predict_result_data[data_iter+1] = predict_result_measurements
@@ -193,6 +194,10 @@ def gradient_descent(B, predict_result, loss_result, optimiser_params):
                 new_params["parameter_theta"][depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = old_params[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] - optimiser_params["learning_rate"] * loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1]
 
     return new_params
+
+
+def nelder_mead(teacher_model, quantum_computer, loss_functions_model, quantum_result_store, optimiser_params,):
+    return
 
 
 def extract_result(predict_result_data, result_type):
@@ -327,7 +332,7 @@ class sobolev_loss:
                     loss_gradient_parameter_dict[depth_iter+1][qubit_iter+1][rotate_gate_iter+1] = np.sum((training_data["y_data"] - predict_result["a"] * predict_y) * (-2*predict_result["a"]*parameter_gradient) + (training_data["y1d_data"] - predict_result["a"] * predict_gradient_x) * (-2*predict_result["a"]*parameter_x_gradient))
 
         loss_result = {"loss": loss,
-                       "loss_gradient_parameter_dict": loss_gradient_parameter_dict,
+                       "loss_gradient_parameter_dict": loss_gradient_parameter_dict,  #*** This must recoded such as the it will not be computed when it is not needed by the optimiser ***
                        "a_gradient": a_gradient}
 
         return loss_result
